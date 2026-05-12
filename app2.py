@@ -605,7 +605,7 @@ if "Επισκόπηση" in page:
     st.markdown('<div class="section-header">ΑΝΑΛΥΣΗ ΑΝΑ ΖΩΝΗ ΠΑΡΑΔΟΣΗΣ</div>', unsafe_allow_html=True)
     st.markdown(f'<div class="section-sub">(ΟΛΟ ΤΟ ΔΙΑΣΤΗΜΑ)</div>', unsafe_allow_html=True)
 
-    zone_map = {1: "24H (1 ΕΡΓΑΣΙΜΗ)", 2: "48H (2 ΕΡΓΑΣΙΜΕΣ)", 3: "96H (3+ ΕΡΓΑΣΙΜΕΣ)"}
+    zone_map = {1: "24H (1 ΕΡΓΑΣΙΜΗ)", 2: "48H (2 ΕΡΓΑΣΙΜΕΣ)", 3: "72H (3 ΕΡΓΑΣΙΜΕΣ)"}
 
     def donut_svg(pct, c_in, c_out, size=200):
         r=72; cx=cy=90; stroke=18; circ=2*3.14159*r
@@ -675,7 +675,7 @@ if "Επισκόπηση" in page:
             grp = late[(late["delay_days"] >= d_min) & (late["delay_days"] < d_max)]
             cnt = len(grp)
             pct = cnt / n_late * 100 if n_late else 0
-            # breakdown by zone
+            # breakdown by zone (24h=1, 48h=2, 72h=3)
             z1 = len(grp[grp["SLA"]==1]); z2 = len(grp[grp["SLA"]==2]); z3 = len(grp[grp["SLA"]==3])
             st.markdown(f"""<div style="background:white;border-radius:14px;padding:16px 20px;box-shadow:0 1px 8px rgba(0,0,0,0.07);border:1px solid #f0f2f5;display:flex;align-items:center;gap:16px;">
                 {delay_donut_svg(cnt, pct, color)}
@@ -683,7 +683,7 @@ if "Επισκόπηση" in page:
                     <div style="font-size:11px;font-weight:700;color:#8fa3c0;text-transform:uppercase;margin-bottom:12px;">{lbl}</div>
                     <div style="font-size:12px;margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0ea5e9;margin-right:6px;"></span>24h <b>{z1:,}</b></div>
                     <div style="font-size:12px;margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f97316;margin-right:6px;"></span>48h <b>{z2:,}</b></div>
-                    <div style="font-size:12px;margin-bottom:12px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7c3aed;margin-right:6px;"></span>96h <b>{z3:,}</b></div>
+                    <div style="font-size:12px;margin-bottom:12px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7c3aed;margin-right:6px;"></span>72h <b>{z3:,}</b></div>
                     <div style="font-size:11px;color:#8fa3c0;">% εκτός SLA</div>
                     <div style="font-size:16px;font-weight:800;color:{color};">{pct:.1f}%</div>
                 </div>
