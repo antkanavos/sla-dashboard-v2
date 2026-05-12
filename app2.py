@@ -586,8 +586,8 @@ if "Επισκόπηση" in page:
         (k2, "✅", "ΠΑΡΑΔΟΘΗΚΑΝ",      f"{n_del:,}", f"{n_del/total*100:.2f}% του συνόλου" if total else ""),
         (k3, "🎯", "ΕΝΤΟΣ SLA",         f"{n_ontime:,}", f"{sla_pct:.2f}% παραδοθέντων"),
         (k4, "📊", "SLA % (ΕΝΤΟΣ)",     f"{sla_pct:.2f}%", f"{n_ontime:,} / {n_del:,}"),
-        (k5, "↩️", "ΑΠΑΡΑΔΟΤΑ",         f"{n_apd:,}", f"{apd_pct:.2f}% του συνόλου"),
-        (k6, "⏳", "PENDING",            f"{n_pend:,}", f"{n_pend/total*100:.2f}% του συνόλου" if total else ""),
+        (k5, "⏳", "PENDING SLA",        f"{n_pend:,}", f"{n_pend/total*100:.2f}% του συνόλου" if total else ""),
+        (k6, "⚠️", "ΑΠΑΡΑΔΟΤΑ",         f"{n_apd:,}", f"{apd_pct:.2f}% του συνόλου"),
     ]
     for col, icon, label, val, sub in kpis:
         with col:
@@ -636,6 +636,56 @@ if "Επισκόπηση" in page:
                     <div style="font-size:13px;margin-bottom:14px;"><span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:#ef4444;margin-right:7px;"></span>Εκτός <b>{lat:,}</b> <span style="color:#8fa3c0">({100-pct:.2f}%)</span></div>
                     <div style="font-size:11px;color:#8fa3c0;">Σύνολο παραδοθέντων</div>
                     <div style="font-size:18px;font-weight:800;color:#1a2235;">{len(g):,}</div>
+                </div>
+            </div>""", unsafe_allow_html=True)
+
+
+    # Delay analysis
+    st.markdown('<hr class="divider">', unsafe_allow_html=True)
+    st.markdown('<div class="section-header">ΚΑΘΥΣΤΕΡΗΣΗ ΠΑΡΑΔΟΣΕΩΝ</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">(ΟΛΟ ΤΟ ΔΙΑΣΤΗΜΑ)</div>', unsafe_allow_html=True)
+
+    late = delivered[~delivered["on_time"]].copy() if len(delivered) else pd.DataFrame()
+
+    def delay_donut_svg(count, pct_of_late, color, size=160):
+        r=62; cx=cy=78; stroke=16; circ=2*3.14159*r
+        filled=circ*pct_of_late/100; gap=circ-filled
+        return f"""<svg viewBox="0 0 156 156" width="{size}" height="{size}" style="flex-shrink:0;">
+            <circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#f1f5f9" stroke-width="{stroke}"/>
+            <circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{color}" stroke-width="{stroke}"
+                stroke-dasharray="{filled:.2f} {gap:.2f}" stroke-linecap="round" transform="rotate(-90 {cx} {cy})"/>
+            <text x="{cx}" y="{cy-6}" text-anchor="middle" dominant-baseline="central"
+                font-family="Plus Jakarta Sans,sans-serif" font-size="22" font-weight="800" fill="#1a2235">{count:,}</text>
+            <text x="{cx}" y="{cy+16}" text-anchor="middle"
+                font-family="Plus Jakarta Sans,sans-serif" font-size="10" font-weight="600" fill="#8fa3c0">αποστολές</text>
+        </svg>"""
+
+    delay_cols = st.columns(3)
+    delay_bands = [
+        (1, 2,  "1 ΗΜΕΡΑ ΚΑΘΥΣΤΕΡΗΣΗ",   "#f97316"),
+        (2, 3,  "2 ΗΜΕΡΕΣ ΚΑΘΥΣΤΕΡΗΣΗ",  "#ef4444"),
+        (3, 999,"3+ ΗΜΕΡΕΣ ΚΑΘΥΣΤΕΡΗΣΗ", "#7c3aed"),
+    ]
+    n_late = len(late)
+    for i, (d_min, d_max, lbl, color) in enumerate(delay_bands):
+        with delay_cols[i]:
+            if not n_late:
+                st.markdown(f'<div style="background:white;border-radius:14px;padding:16px;box-shadow:0 1px 8px rgba(0,0,0,0.07);text-align:center;color:#ccc;">{lbl}<br>Δεν υπάρχουν δεδομένα</div>', unsafe_allow_html=True)
+                continue
+            grp = late[(late["delay_days"] >= d_min) & (late["delay_days"] < d_max)]
+            cnt = len(grp)
+            pct = cnt / n_late * 100 if n_late else 0
+            # breakdown by zone
+            z1 = len(grp[grp["SLA"]==1]); z2 = len(grp[grp["SLA"]==2]); z3 = len(grp[grp["SLA"]==3])
+            st.markdown(f"""<div style="background:white;border-radius:14px;padding:16px 20px;box-shadow:0 1px 8px rgba(0,0,0,0.07);border:1px solid #f0f2f5;display:flex;align-items:center;gap:16px;">
+                {delay_donut_svg(cnt, pct, color)}
+                <div style="flex:1;">
+                    <div style="font-size:11px;font-weight:700;color:#8fa3c0;text-transform:uppercase;margin-bottom:12px;">{lbl}</div>
+                    <div style="font-size:12px;margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0ea5e9;margin-right:6px;"></span>24h <b>{z1:,}</b></div>
+                    <div style="font-size:12px;margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f97316;margin-right:6px;"></span>48h <b>{z2:,}</b></div>
+                    <div style="font-size:12px;margin-bottom:12px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7c3aed;margin-right:6px;"></span>96h <b>{z3:,}</b></div>
+                    <div style="font-size:11px;color:#8fa3c0;">% εκτός SLA</div>
+                    <div style="font-size:16px;font-weight:800;color:{color};">{pct:.1f}%</div>
                 </div>
             </div>""", unsafe_allow_html=True)
 
