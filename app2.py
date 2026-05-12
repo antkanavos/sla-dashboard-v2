@@ -715,10 +715,10 @@ if "Επισκόπηση" in page:
             m = today.month - delta
             y = today.year
             while m <= 0: m += 12; y -= 1
-            months.append((y, m, False))
-        months.append((today.year, today.month, True))
+            is_cur = (y == today.year and m == today.month)
+            months.append((y, m, is_cur))
         mo_cols = st.columns(3)
-        for col_i, (yr, mo, is_current) in enumerate(months[-3:]):
+        for col_i, (yr, mo, is_current) in enumerate(months):
             mask = (delivered["Ημ/νία Pickup"].dt.year == yr) & (delivered["Ημ/νία Pickup"].dt.month == mo)
             sub = delivered[mask]
             with mo_cols[col_i]:
