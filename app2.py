@@ -190,6 +190,8 @@ def do_sla_matching_tk(df, master_sla):
     df = df.copy().reset_index(drop=True)
     df["TK_CLEAN"]   = df["ΤΚ"].apply(clean_pc)
     df["CITY_CLEAN"] = df["Πόλη"].apply(clean_city)
+    df["SLA"]  = None
+    df["Zone"] = None
 
     # Step 1: TK + City exact
     m1 = master_sla.dropna(subset=["SLA_days"]).drop_duplicates(["TK_CLEAN","CITY_CLEAN"])
