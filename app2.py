@@ -244,7 +244,44 @@ def update_master_table(df_new):
     df_new["_ret_str"] = df_new.get("Ημ/νία Επιστροφής Απαραδότου", pd.Series("", index=df_new.index)).astype(str).replace("NaT","")
 
     if existing.empty:
-        return pd.DataFrame(), 0, 0, False, sha
+        # Sheet is empty — insert all rows from data.csv
+        rows_to_add = []
+        for _, row in df_new.iterrows():
+            new_del = normalize_date(str(row["_del_str"]).strip())
+            new_ret = normalize_date(str(row["_ret_str"]).strip())
+            is_apd  = "1" if new_ret else ""
+            rows_to_add.append({
+                "Αριθμός":        str(row["Αριθμός"]),
+                "Ημ_Pickup":      normalize_date(str(row.get("Ημ/νία Pickup", ""))),
+                "Ημ_Παράδοσης":   new_del,
+                "Ημ_Επιστροφής":  new_ret,
+                "ΤΚ":             clean_pc(row.get("Τ.Κ Παράδοσης","")),
+                "Πόλη":           clean_city(row.get("Πόλη Παράδοσης","")),
+                "Κωδ_Καταστήματος": str(row.get("Κωδ. Καταστήματος Παράδοσης","")),
+                "Κατάστημα":      str(row.get("Κατάστημα Παραλαβής","")),
+                "Κωδ_Πελάτη":    str(row.get("Κωδ. Πελάτη","")),
+                "Πελάτης":        str(row.get("Ονομασία Πελάτη","")),
+                "Κωδ_Συμφωνίας": str(row.get("Κωδ. Συμφωνίας","")),
+                "Συμφωνία":       str(row.get("Περιγραφή Συμφωνίας","")),
+                "SLA":            "",
+                "Zone":           "",
+                "Working_Days":   "",
+                "Απαράδοτο":      is_apd,
+            })
+        new_df = pd.DataFrame(rows_to_add)
+        new_df = do_sla_matching_tk(new_df, master_sla)
+        new_df["_dm"] = pd.to_datetime(new_df["Ημ_Pickup"], errors="coerce")
+        new_df["_dp"] = pd.to_datetime(new_df["Ημ_Παράδοσης"], errors="coerce")
+        new_df["Working_Days"] = new_df.apply(lambda r: calc_working_days(r["_dm"],r["_dp"],holidays), axis=1)
+        new_df["SLA"] = new_df["SLA"].astype(str).replace("nan","")
+        new_df.drop(columns=["_dm","_dp"], inplace=True, errors="ignore")
+        ws = get_gsheet()
+        new_rows = new_df[MT_COLS].fillna("").astype(str).values.tolist()
+        # Write in batches of 1000
+        for i in range(0, len(new_rows), 1000):
+            gsheet_backoff(ws.append_rows, new_rows[i:i+1000], value_input_option="RAW")
+        load_master_table.clear()
+        return pd.DataFrame(), len(rows_to_add), 0, True, sha
 
     existing["Αριθμός"] = existing["Αριθμός"].astype(str)
     existing_idx = existing.set_index("Αριθμός")
@@ -384,9 +421,9 @@ def load_and_process():
     df["Κατάστημα"] = df.get("Κωδ. Καταστήματος Παράδοσης","").astype(str).str.strip() + " " + df.get("Κατάστημα","").astype(str).str.strip()
 
     # Dates
-    df["Ημ/νία Pickup"] = pd.to_datetime(df["Ημ/νία Pickup"], dayfirst=True, errors="coerce")
-    df["Ημ/νία Παράδοσης"]   = pd.to_datetime(df["Ημ/νία Παράδοσης"],   errors="coerce")
-    df["Ημ/νία Επιστροφής"]  = pd.to_datetime(df.get("Ημ/νία Επιστροφής",""), errors="coerce")
+    df["Ημ/νία Pickup"]      = pd.to_datetime(df["Ημ/νία Pickup"],    dayfirst=True, errors="coerce")
+    df["Ημ/νία Παράδοσης"]   = pd.to_datetime(df["Ημ/νία Παράδοσης"].astype(str).str.strip().replace({"":"NaT","nan":"NaT"}), errors="coerce")
+    df["Ημ/νία Επιστροφής"]  = pd.to_datetime(df.get("Ημ/νία Επιστροφής","").astype(str).str.strip().replace({"":"NaT","nan":"NaT"}), errors="coerce")
 
     # SLA for rows missing it
     needs_sla = df["SLA"].isna() | df["SLA"].astype(str).str.strip().isin(["","nan"])
@@ -442,16 +479,37 @@ if df_full is None or len(df_full) == 0:
 min_d = df_full["Ημ/νία Pickup"].min().date()
 max_d = df_full["Ημ/νία Pickup"].max().date()
 
-clients    = ["Όλοι"] + sorted(df_full["Κωδ_Πελάτη"].dropna().unique().tolist())
-agreements = ["Όλες"]
+# Build client list with name (code - name)
+client_options = {"Όλοι": "Όλοι"}
+for _, row in df_full.drop_duplicates("Κωδ_Πελάτη").iterrows():
+    code = str(row.get("Κωδ_Πελάτη","")).strip()
+    name = str(row.get("Πελάτης","")).strip()
+    if code and code != "nan":
+        label = f"{name}" if name and name != "nan" else code
+        client_options[code] = label
 
 ff1, ff2 = st.columns([3, 3])
-with ff1: client_filter = st.selectbox("Πελάτης", clients, key="client")
+with ff1:
+    client_label = st.selectbox("Πελάτης", list(client_options.values()), key="client")
+    client_filter = [k for k,v in client_options.items() if v == client_label][0]
+
+# Build agreement list
 if client_filter != "Όλοι":
-    avail_agree = ["Όλες"] + sorted(df_full[df_full["Κωδ_Πελάτη"]==client_filter]["Κωδ_Συμφωνίας"].dropna().unique().tolist())
+    sub_df = df_full[df_full["Κωδ_Πελάτη"] == client_filter]
 else:
-    avail_agree = ["Όλες"] + sorted(df_full["Κωδ_Συμφωνίας"].dropna().unique().tolist())
-with ff2: agree_filter = st.selectbox("Συμφωνία", avail_agree, key="agree")
+    sub_df = df_full
+
+agree_options = {"Όλες": "Όλες"}
+for _, row in sub_df.drop_duplicates("Κωδ_Συμφωνίας").iterrows():
+    code = str(row.get("Κωδ_Συμφωνίας","")).strip()
+    name = str(row.get("Συμφωνία","")).strip()
+    if code and code != "nan":
+        label = f"{name}" if name and name != "nan" else code
+        agree_options[code] = label
+
+with ff2:
+    agree_label  = st.selectbox("Συμφωνία", list(agree_options.values()), key="agree")
+    agree_filter = [k for k,v in agree_options.items() if v == agree_label][0]
 
 # Apply client/agreement filter
 df_filtered = df_full.copy()
