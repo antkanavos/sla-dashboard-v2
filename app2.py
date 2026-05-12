@@ -706,20 +706,58 @@ if "Επισκόπηση" in page:
     st.markdown('<div class="section-header">ΜΗΝΙΑΙΑ ΕΠΙΔΟΣΗ</div>', unsafe_allow_html=True)
 
     if len(delivered):
-        delivered["_mo"] = delivered["Ημ/νία Pickup"].dt.to_period("M")
-        mo_grp = delivered.groupby("_mo").agg(total=("on_time","count"), ontime=("on_time","sum")).reset_index()
-        mo_grp["sla_pct"] = (mo_grp["ontime"]/mo_grp["total"]*100).round(2)
-        mo_grp["_mo_str"] = mo_grp["_mo"].astype(str)
-        fig_mo = go.Figure(go.Bar(
-            x=mo_grp["_mo_str"], y=mo_grp["sla_pct"],
-            marker_color=mo_grp["sla_pct"].apply(lambda x: "#22c55e" if x>=90 else "#f97316" if x>=75 else "#ef4444"),
-            text=mo_grp["sla_pct"].apply(lambda x: f"{x:.1f}%"), textposition="outside",
-        ))
-        fig_mo.update_layout(height=280, paper_bgcolor="white", plot_bgcolor="white",
-            margin=dict(t=20,b=20,l=40,r=20), font=dict(family="Plus Jakarta Sans"),
-            yaxis=dict(range=[0,110], ticksuffix="%", gridcolor="#f0f2f5"), showlegend=False)
-        fig_mo.add_hline(y=90, line_dash="dot", line_color="#94a3b8", opacity=0.5)
-        st.plotly_chart(fig_mo, use_container_width=True)
+        import calendar
+        MONTH_GR = ["","ΙΑΝΟΥΑΡΙΟΣ","ΦΕΒΡΟΥΑΡΙΟΣ","ΜΑΡΤΙΟΣ","ΑΠΡΙΛΙΟΣ","ΜΑΪΟΣ","ΙΟΥΝΙΟΣ",
+                    "ΙΟΥΛΙΟΣ","ΑΥΓΟΥΣΤΟΣ","ΣΕΠΤΕΜΒΡΙΟΣ","ΟΚΤΩΒΡΙΟΣ","ΝΟΕΜΒΡΙΟΣ","ΔΕΚΕΜΒΡΙΟΣ"]
+        today = date.today()
+        months = []
+        for delta in range(2, -1, -1):
+            m = today.month - delta
+            y = today.year
+            while m <= 0: m += 12; y -= 1
+            months.append((y, m, False))
+        months.append((today.year, today.month, True))
+        mo_cols = st.columns(3)
+        for col_i, (yr, mo, is_current) in enumerate(months[-3:]):
+            mask = (delivered["Ημ/νία Pickup"].dt.year == yr) & (delivered["Ημ/νία Pickup"].dt.month == mo)
+            sub = delivered[mask]
+            with mo_cols[col_i]:
+                lbl = f"{MONTH_GR[mo]} {yr}"
+                if is_current:
+                    lbl += f" (ΕΩΣ {today.strftime('%d/%m')})"
+                if not len(sub):
+                    st.markdown(f'<div style="background:white;border-radius:14px;padding:20px;box-shadow:0 1px 8px rgba(0,0,0,0.07);"><div style="font-size:11px;font-weight:700;color:#8fa3c0;">{lbl}</div><div style="color:#ccc;margin-top:8px;">Δεν υπάρχουν δεδομένα</div></div>', unsafe_allow_html=True)
+                    continue
+                total_mo = len(sub)
+                ontime_mo = int(sub["on_time"].sum())
+                pct_mo = ontime_mo / total_mo * 100 if total_mo else 0
+                pct_color = "#22c55e" if pct_mo>=90 else "#f97316" if pct_mo>=75 else "#ef4444"
+                zone_rows = ""
+                for sla_d, zlbl in [(1,"24h (1 εργάσιμη)"),(2,"48h (2 εργάσιμες)"),(3,"72h (3 εργάσιμες)")]:
+                    zg = sub[sub["SLA"]==sla_d]
+                    if not len(zg): continue
+                    zpct = int(zg["on_time"].sum()) / len(zg) * 100
+                    zcolor = "#22c55e" if zpct>=90 else "#f97316" if zpct>=75 else "#ef4444"
+                    bar_w = max(0, min(100, zpct))
+                    zone_rows += (
+                        '<div style="margin-bottom:10px;">'
+                        '<div style="display:flex;justify-content:space-between;font-size:11px;color:#8fa3c0;margin-bottom:3px;">'
+                        f'<span>{zlbl}</span><span style="font-weight:700;color:{zcolor};">{zpct:.2f}%</span>'
+                        '</div>'
+                        '<div style="background:#f1f5f9;border-radius:4px;height:6px;">'
+                        f'<div style="background:{zcolor};width:{bar_w:.1f}%;height:6px;border-radius:4px;"></div>'
+                        '</div></div>'
+                    )
+                st.markdown(
+                    f'<div style="background:white;border-radius:14px;padding:20px 24px;box-shadow:0 1px 8px rgba(0,0,0,0.07);border:1px solid #f0f2f5;">'
+                    f'<div style="font-size:11px;font-weight:700;color:#8fa3c0;text-transform:uppercase;margin-bottom:6px;">{lbl}</div>'
+                    f'<div style="font-size:10px;color:#8fa3c0;margin-bottom:4px;">SLA % (ΕΝΤΟΣ)</div>'
+                    f'<div style="font-size:30px;font-weight:800;color:{pct_color};margin-bottom:2px;">{pct_mo:.2f}%</div>'
+                    f'<div style="font-size:11px;color:#8fa3c0;margin-bottom:16px;">{ontime_mo:,} / {total_mo:,}</div>'
+                    f'{zone_rows}'
+                    f'</div>',
+                    unsafe_allow_html=True
+                )
 
     # Update master table
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
