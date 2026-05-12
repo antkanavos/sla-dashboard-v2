@@ -422,8 +422,8 @@ def load_and_process():
     df = mt.rename(columns={k:v for k,v in col_map.items() if k in mt.columns})
     df["Κατάστημα"] = df.get("Κωδ. Καταστήματος Παράδοσης","").astype(str).str.strip() + " " + df.get("Κατάστημα","").astype(str).str.strip()
 
-    # Dates
-    df["Ημ/νία Pickup"]      = pd.to_datetime(df["Ημ/νία Pickup"],    dayfirst=True, errors="coerce")
+    # Dates — ISO format (yyyy-mm-dd) from Sheet, no dayfirst
+    df["Ημ/νία Pickup"]      = pd.to_datetime(df["Ημ/νία Pickup"],    errors="coerce")
     df["Ημ/νία Παράδοσης"]   = pd.to_datetime(df["Ημ/νία Παράδοσης"].astype(str).str.strip().replace({"":"NaT","nan":"NaT"}), errors="coerce")
     df["Ημ/νία Επιστροφής"]  = pd.to_datetime(df.get("Ημ/νία Επιστροφής","").astype(str).str.strip().replace({"":"NaT","nan":"NaT"}), errors="coerce")
 
