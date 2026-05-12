@@ -441,6 +441,9 @@ def load_and_process():
     df["working_days"]= pd.to_numeric(df["Working_Days"], errors="coerce")
     df["Απαράδοτο"]   = df.get("Απαράδοτο","").astype(str).str.strip().isin(["1","True","TRUE","true"])
 
+    # Debug
+    st.session_state["_debug_del"] = f"Παράδοση notna: {df['Ημ/νία Παράδοσης'].notna().sum()} / {len(df)} | sample: {df['Ημ/νία Παράδοσης'].dropna().head(3).tolist()}"
+
     return df
 
 # ---------- METRICS ----------
@@ -470,8 +473,12 @@ with st.sidebar:
     ], label_visibility="collapsed")
 
 # ---------- LOAD DATA ----------
+load_and_process.clear()
 with st.spinner("Φόρτωση δεδομένων..."):
     df_full = load_and_process()
+
+if "_debug_del" in st.session_state:
+    st.write("DEBUG:", st.session_state["_debug_del"])
 
 if df_full is None or len(df_full) == 0:
     st.error("Δεν βρέθηκαν δεδομένα.")
