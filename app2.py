@@ -222,6 +222,17 @@ def calc_working_days(dm, dp, holidays):
     wd = len([d for d in days if d.weekday() not in (5,6) and d.date() not in holidays]) - 1
     return str(max(0, wd))
 
+def add_working_days(start, n, holidays):
+    """Return the date after adding n working days (Mon-Fri, excl. holidays) to start."""
+    if pd.isna(start) or pd.isna(n): return pd.NaT
+    current = pd.Timestamp(start)
+    remaining = int(n)
+    while remaining > 0:
+        current += pd.Timedelta(days=1)
+        if current.weekday() not in (5, 6) and current.date() not in holidays:
+            remaining -= 1
+    return current
+
 # ---------- MASTER TABLE SCHEMA ----------
 MT_COLS = ["Αριθμός","Ημ_Pickup","Ημ_Παράδοσης","Ημ_Επιστροφής",
            "ΤΚ","Πόλη","Κωδ_Καταστήματος","Κατάστημα",
@@ -446,13 +457,29 @@ def load_and_process():
     return df
 
 # ---------- METRICS ----------
-def metrics(df):
-    delivered = df[df["Ημ/νία Παράδοσης"].notna() & ~df["Απαράδοτο"]].copy()
+def metrics(df, holidays=None):
+    today = pd.Timestamp(date.today())
+
+    # Delivered: have Ημ/νία Παράδοσης
+    delivered = df[df["Ημ/νία Παράδοσης"].notna()].copy()
     if len(delivered):
-        delivered["on_time"]   = delivered["working_days"] <= delivered["SLA"]
-        delivered["delay_days"]= (delivered["working_days"] - delivered["SLA"]).clip(lower=0)
-    apd = df[df["Απαράδοτο"]].copy()
-    pending = df[df["Ημ/νία Παράδοσης"].isna() & ~df["Απαράδοτο"]].copy()
+        delivered["on_time"]    = delivered["working_days"] <= delivered["SLA"]
+        delivered["delay_days"] = (delivered["working_days"] - delivered["SLA"]).clip(lower=0)
+
+    # Not delivered: no Ημ/νία Παράδοσης
+    not_del = df[df["Ημ/νία Παράδοσης"].isna()].copy()
+
+    if holidays is not None and len(not_del):
+        not_del["_expected"] = not_del.apply(
+            lambda r: add_working_days(r["Ημ/νία Pickup"], r["SLA"], holidays)
+            if pd.notna(r.get("SLA")) else pd.NaT, axis=1
+        )
+        pending = not_del[not_del["_expected"].isna() | (not_del["_expected"] >= today)].copy()
+        apd     = not_del[not_del["_expected"].notna() & (not_del["_expected"] < today)].copy()
+    else:
+        pending = not_del.copy()
+        apd     = pd.DataFrame(columns=df.columns)
+
     return delivered, apd, pending
 
 # ════════════════════════════════════
@@ -476,7 +503,6 @@ with st.spinner("Φόρτωση δεδομένων..."):
     df_full = load_and_process()
 
 # Temporary debug
-st.write(f"DEBUG rows={len(df_full)}, del={df_full['Ημ/νία Παράδοσης'].notna().sum() if 'Ημ/νία Παράδοσης' in df_full.columns else 'NO COL'}, sample_del={df_full['Ημ/νία Παράδοσης'].dropna().head(2).tolist() if 'Ημ/νία Παράδοσης' in df_full.columns else ''}")
 
 if df_full is None or len(df_full) == 0:
     st.error("Δεν βρέθηκαν δεδομένα.")
@@ -541,7 +567,7 @@ if "Επισκόπηση" in page:
         (df_filtered["Ημ/νία Pickup"].dt.date <= date_to)
     ].copy()
 
-    delivered, apd, pending = metrics(df)
+    delivered, apd, pending = metrics(df, holidays=load_holidays())
 
     total     = len(df)
     n_del     = len(delivered)
@@ -671,7 +697,7 @@ elif "Νομού" in page:
     def period_stats(d_from, d_to):
         mask = (df_filtered["Ημ/νία Pickup"].dt.date >= d_from) & (df_filtered["Ημ/νία Pickup"].dt.date <= d_to)
         sub  = df_filtered[mask]
-        d, _, _ = metrics(sub)
+        d, _, _ = metrics(sub, holidays=load_holidays())
         if not len(d) or "Zone" not in d.columns: return pd.DataFrame()
         r = d.groupby("Zone").agg(total=("on_time","count"), on_time=("on_time","sum")).reset_index()
         r["sla_pct"] = (r["on_time"]/r["total"]*100).round(2)
@@ -740,7 +766,7 @@ elif "Καταστήματος" in page:
     def shop_stats(d_from, d_to):
         mask = (df_filtered["Ημ/νία Pickup"].dt.date >= d_from) & (df_filtered["Ημ/νία Pickup"].dt.date <= d_to)
         sub  = df_filtered[mask]
-        d, _, _ = metrics(sub)
+        d, _, _ = metrics(sub, holidays=load_holidays())
         if not len(d) or "Κατάστημα" not in d.columns: return pd.DataFrame()
         r = d.groupby("Κατάστημα").agg(total=("on_time","count"), on_time=("on_time","sum")).reset_index()
         r["sla_pct"] = (r["on_time"]/r["total"]*100).round(2)
