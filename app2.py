@@ -221,7 +221,7 @@ def calc_working_days(dm, dp, holidays):
     return str(max(0, wd))
 
 # ---------- MASTER TABLE SCHEMA ----------
-MT_COLS = ["Αριθμός","Ημ_Δημιουργίας","Ημ_Παράδοσης","Ημ_Επιστροφής",
+MT_COLS = ["Αριθμός","Ημ_Pickup","Ημ_Παράδοσης","Ημ_Επιστροφής",
            "ΤΚ","Πόλη","Κωδ_Καταστήματος","Κατάστημα",
            "Κωδ_Πελάτη","Πελάτης","Κωδ_Συμφωνίας","Συμφωνία",
            "SLA","Zone","Working_Days","Απαράδοτο"]
@@ -261,7 +261,7 @@ def update_master_table(df_new):
         if ar not in existing_idx.index:
             rows_to_add.append({
                 "Αριθμός":        ar,
-                "Ημ_Δημιουργίας": normalize_date(str(row["Ημ/νία Δημιουργίας"])),
+                "Ημ_Pickup": normalize_date(str(row["Ημ/νία Pickup"])),
                 "Ημ_Παράδοσης":   new_del,
                 "Ημ_Επιστροφής":  new_ret,
                 "ΤΚ":             clean_pc(row.get("Τ.Κ Παράδοσης","")),
@@ -299,7 +299,7 @@ def update_master_table(df_new):
         new_df = pd.DataFrame(rows_to_add)
         new_df = do_sla_matching_tk(new_df, master_sla)
         # Working days for delivered
-        new_df["_dm"] = pd.to_datetime(new_df["Ημ_Δημιουργίας"], errors="coerce")
+        new_df["_dm"] = pd.to_datetime(new_df["Ημ_Pickup"], errors="coerce")
         new_df["_dp"] = pd.to_datetime(new_df["Ημ_Παράδοσης"],   errors="coerce")
         new_df["Working_Days"] = new_df.apply(lambda r: calc_working_days(r["_dm"],r["_dp"],holidays), axis=1)
         new_df["SLA"] = new_df["SLA"].astype(str).replace("nan","")
@@ -321,7 +321,7 @@ def update_master_table(df_new):
         col_ret = col_idx("Ημ_Επιστροφής")
         col_wd  = col_idx("Working_Days")
         col_apd = col_idx("Απαράδοτο")
-        col_dm  = col_idx("Ημ_Δημιουργίας")
+        col_dm  = col_idx("Ημ_Pickup")
 
         import gspread.utils as gu
         batch = []
@@ -351,7 +351,7 @@ def load_and_process():
     holidays   = load_holidays()
     mt, _      = load_master_table()
 
-    if mt is None or len(mt) == 0 or "Ημ_Δημιουργίας" not in mt.columns:
+    if mt is None or len(mt) == 0 or "Ημ_Pickup" not in mt.columns:
         # Fallback: data.csv
         try:
             df = pd.read_csv(f"{GH_RAW}/data.csv")
@@ -360,7 +360,7 @@ def load_and_process():
             df["ΤΚ"]   = df["Τ.Κ Παράδοσης"].apply(clean_pc)
             df["Πόλη"] = df["Πόλη Παράδοσης"].apply(clean_city)
             df = do_sla_matching_tk(df, master_sla)
-            df["Ημ/νία Δημιουργίας"] = pd.to_datetime(df["Ημ/νία Δημιουργίας"], dayfirst=True, errors="coerce")
+            df["Ημ/νία Pickup"] = pd.to_datetime(df["Ημ/νία Pickup"], dayfirst=True, errors="coerce")
             df["Ημ/νία Παράδοσης"]   = pd.to_datetime(df["Ημ/νία Παράδοσης"],   dayfirst=True, errors="coerce")
             df["Κωδ_Πελάτη"]  = df["Κωδ. Πελάτη"].astype(str)
             df["Πελάτης"]     = df["Ονομασία Πελάτη"].astype(str)
@@ -368,14 +368,14 @@ def load_and_process():
             df["Συμφωνία"]    = df["Περιγραφή Συμφωνίας"].astype(str)
             df["Κατάστημα"]   = df["Κωδ. Καταστήματος Παράδοσης"].astype(str) + " " + df["Κατάστημα Παραλαβής"].astype(str)
             df["Απαράδοτο"]   = df.get("Ημ/νία Επιστροφής Απαραδότου","").astype(str).str.strip().apply(lambda x: x not in ("","nan","NaT"))
-            df["working_days"] = df.apply(lambda r: int(calc_working_days(r["Ημ/νία Δημιουργίας"],r["Ημ/νία Παράδοσης"],holidays) or -1), axis=1)
+            df["working_days"] = df.apply(lambda r: int(calc_working_days(r["Ημ/νία Pickup"],r["Ημ/νία Παράδοσης"],holidays) or -1), axis=1)
             return df
         except Exception as e:
             return pd.DataFrame()
 
     # Normal path: from Google Sheet
     col_map = {
-        "Ημ_Δημιουργίας": "Ημ/νία Δημιουργίας",
+        "Ημ_Pickup": "Ημ/νία Pickup",
         "Ημ_Παράδοσης":   "Ημ/νία Παράδοσης",
         "Ημ_Επιστροφής":  "Ημ/νία Επιστροφής",
         "Κωδ_Καταστήματος": "Κωδ. Καταστήματος Παράδοσης",
@@ -384,7 +384,7 @@ def load_and_process():
     df["Κατάστημα"] = df.get("Κωδ. Καταστήματος Παράδοσης","").astype(str).str.strip() + " " + df.get("Κατάστημα","").astype(str).str.strip()
 
     # Dates
-    df["Ημ/νία Δημιουργίας"] = pd.to_datetime(df["Ημ/νία Δημιουργίας"], dayfirst=True, errors="coerce")
+    df["Ημ/νία Pickup"] = pd.to_datetime(df["Ημ/νία Pickup"], dayfirst=True, errors="coerce")
     df["Ημ/νία Παράδοσης"]   = pd.to_datetime(df["Ημ/νία Παράδοσης"],   errors="coerce")
     df["Ημ/νία Επιστροφής"]  = pd.to_datetime(df.get("Ημ/νία Επιστροφής",""), errors="coerce")
 
@@ -439,8 +439,8 @@ if df_full is None or len(df_full) == 0:
     st.stop()
 
 # ---------- CLIENT/AGREEMENT FILTERS (always visible) ----------
-min_d = df_full["Ημ/νία Δημιουργίας"].min().date()
-max_d = df_full["Ημ/νία Δημιουργίας"].max().date()
+min_d = df_full["Ημ/νία Pickup"].min().date()
+max_d = df_full["Ημ/νία Pickup"].max().date()
 
 clients    = ["Όλοι"] + sorted(df_full["Κωδ_Πελάτη"].dropna().unique().tolist())
 agreements = ["Όλες"]
@@ -464,16 +464,16 @@ if agree_filter != "Όλες":
 # PAGE: ΕΠΙΣΚΟΠΗΣΗ
 # ════════════════════════════════════
 if "Επισκόπηση" in page:
-    min_d2 = df_filtered["Ημ/νία Δημιουργίας"].min().date() if len(df_filtered) else min_d
-    max_d2 = df_filtered["Ημ/νία Δημιουργίας"].max().date() if len(df_filtered) else max_d
+    min_d2 = df_filtered["Ημ/νία Pickup"].min().date() if len(df_filtered) else min_d
+    max_d2 = df_filtered["Ημ/νία Pickup"].max().date() if len(df_filtered) else max_d
 
     fc1, fc2 = st.columns([2, 2])
     with fc1: date_from = st.date_input("Από", value=min_d2, min_value=min_d2, max_value=max_d2, key="ep_df")
     with fc2: date_to   = st.date_input("Έως", value=max_d2, min_value=min_d2, max_value=max_d2, key="ep_dt")
 
     df = df_filtered[
-        (df_filtered["Ημ/νία Δημιουργίας"].dt.date >= date_from) &
-        (df_filtered["Ημ/νία Δημιουργίας"].dt.date <= date_to)
+        (df_filtered["Ημ/νία Pickup"].dt.date >= date_from) &
+        (df_filtered["Ημ/νία Pickup"].dt.date <= date_to)
     ].copy()
 
     delivered, apd, pending = metrics(df)
@@ -553,7 +553,7 @@ if "Επισκόπηση" in page:
     st.markdown('<div class="section-header">ΜΗΝΙΑΙΑ ΕΠΙΔΟΣΗ</div>', unsafe_allow_html=True)
 
     if len(delivered):
-        delivered["_mo"] = delivered["Ημ/νία Δημιουργίας"].dt.to_period("M")
+        delivered["_mo"] = delivered["Ημ/νία Pickup"].dt.to_period("M")
         mo_grp = delivered.groupby("_mo").agg(total=("on_time","count"), ontime=("on_time","sum")).reset_index()
         mo_grp["sla_pct"] = (mo_grp["ontime"]/mo_grp["total"]*100).round(2)
         mo_grp["_mo_str"] = mo_grp["_mo"].astype(str)
@@ -594,8 +594,8 @@ elif "Νομού" in page:
     st.markdown('<div class="section-header">ΑΝΑΛΥΣΗ ΑΝΑ ΝΟΜΟ / ΠΕΡΙΟΧΗ</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Σύγκριση δύο περιόδων βάσει ημερομηνίας δημιουργίας</div>', unsafe_allow_html=True)
 
-    all_min = df_filtered["Ημ/νία Δημιουργίας"].min().date() if len(df_filtered) else min_d
-    all_max = df_filtered["Ημ/νία Δημιουργίας"].max().date() if len(df_filtered) else max_d
+    all_min = df_filtered["Ημ/νία Pickup"].min().date() if len(df_filtered) else min_d
+    all_max = df_filtered["Ημ/νία Pickup"].max().date() if len(df_filtered) else max_d
 
     p1, p2, p3, p4, _ = st.columns([2,2,2,2,1])
     with p1: p1_from = st.date_input("Περίοδος Α — Από", value=all_min, key="p1f")
@@ -604,7 +604,7 @@ elif "Νομού" in page:
     with p4: p2_to   = st.date_input("Περίοδος Β — Έως", value=all_max, key="p2t")
 
     def period_stats(d_from, d_to):
-        mask = (df_filtered["Ημ/νία Δημιουργίας"].dt.date >= d_from) & (df_filtered["Ημ/νία Δημιουργίας"].dt.date <= d_to)
+        mask = (df_filtered["Ημ/νία Pickup"].dt.date >= d_from) & (df_filtered["Ημ/νία Pickup"].dt.date <= d_to)
         sub  = df_filtered[mask]
         d, _, _ = metrics(sub)
         if not len(d) or "Zone" not in d.columns: return pd.DataFrame()
@@ -663,8 +663,8 @@ elif "Νομού" in page:
 elif "Καταστήματος" in page:
     st.markdown('<div class="section-header">ΑΝΑΛΥΣΗ ΑΝΑ ΚΑΤΑΣΤΗΜΑ</div>', unsafe_allow_html=True)
 
-    all_min = df_filtered["Ημ/νία Δημιουργίας"].min().date() if len(df_filtered) else min_d
-    all_max = df_filtered["Ημ/νία Δημιουργίας"].max().date() if len(df_filtered) else max_d
+    all_min = df_filtered["Ημ/νία Pickup"].min().date() if len(df_filtered) else min_d
+    all_max = df_filtered["Ημ/νία Pickup"].max().date() if len(df_filtered) else max_d
 
     sp1, sp2, sp3, sp4, _ = st.columns([2,2,2,2,1])
     with sp1: s_p1_from = st.date_input("Περίοδος Α — Από", value=all_min, key="sp1f")
@@ -673,7 +673,7 @@ elif "Καταστήματος" in page:
     with sp4: s_p2_to   = st.date_input("Περίοδος Β — Έως", value=all_max, key="sp2t")
 
     def shop_stats(d_from, d_to):
-        mask = (df_filtered["Ημ/νία Δημιουργίας"].dt.date >= d_from) & (df_filtered["Ημ/νία Δημιουργίας"].dt.date <= d_to)
+        mask = (df_filtered["Ημ/νία Pickup"].dt.date >= d_from) & (df_filtered["Ημ/νία Pickup"].dt.date <= d_to)
         sub  = df_filtered[mask]
         d, _, _ = metrics(sub)
         if not len(d) or "Κατάστημα" not in d.columns: return pd.DataFrame()
