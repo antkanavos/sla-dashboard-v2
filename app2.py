@@ -475,8 +475,8 @@ with st.sidebar:
 with st.spinner("Φόρτωση δεδομένων..."):
     df_full = load_and_process()
 
-if "_debug_del" in st.session_state:
-    st.write("DEBUG:", st.session_state["_debug_del"])
+# Temporary debug
+st.write(f"DEBUG rows={len(df_full)}, del={df_full['Ημ/νία Παράδοσης'].notna().sum() if 'Ημ/νία Παράδοσης' in df_full.columns else 'NO COL'}, sample_del={df_full['Ημ/νία Παράδοσης'].dropna().head(2).tolist() if 'Ημ/νία Παράδοσης' in df_full.columns else ''}")
 
 if df_full is None or len(df_full) == 0:
     st.error("Δεν βρέθηκαν δεδομένα.")
