@@ -143,7 +143,8 @@ def load_master_table():
         df = pd.DataFrame(data, dtype=str).replace({"nan": "", "NaT": "", "None": ""})
         return df, None
     except Exception as e:
-        return pd.DataFrame(), None
+        # Raise instead of returning empty — prevents accidental data loss
+        raise RuntimeError(f"Αποτυχία ανάγνωσης Google Sheet: {e}")
 
 # ---------- HELPERS ----------
 @st.cache_data(ttl=3600)
@@ -257,44 +258,8 @@ def update_master_table(df_new):
     df_new["_ret_str"] = df_new.get("Ημ/νία Επιστροφής Απαραδότου", pd.Series("", index=df_new.index)).astype(str).replace("NaT","")
 
     if existing.empty:
-        # Sheet is empty — insert all rows from data.csv
-        rows_to_add = []
-        for _, row in df_new.iterrows():
-            new_del = normalize_date(str(row["_del_str"]).strip())
-            new_ret = normalize_date(str(row["_ret_str"]).strip())
-            is_apd  = "1" if new_ret else ""
-            rows_to_add.append({
-                "Αριθμός":        str(row["Αριθμός"]),
-                "Ημ_Pickup":      normalize_date(str(row.get("Ημ/νία Pickup", ""))),
-                "Ημ_Παράδοσης":   new_del,
-                "Ημ_Επιστροφής":  new_ret,
-                "ΤΚ":             clean_pc(row.get("Τ.Κ Παράδοσης","")),
-                "Πόλη":           clean_city(row.get("Πόλη Παράδοσης","")),
-                "Κωδ_Καταστήματος": str(row.get("Κωδ. Καταστήματος Παράδοσης","")),
-                "Κατάστημα":      str(row.get("Κατάστημα Παραλαβής","")),
-                "Κωδ_Πελάτη":    str(row.get("Κωδ. Πελάτη","")),
-                "Πελάτης":        str(row.get("Ονομασία Πελάτη","")),
-                "Κωδ_Συμφωνίας": str(row.get("Κωδ. Συμφωνίας","")),
-                "Συμφωνία":       str(row.get("Περιγραφή Συμφωνίας","")),
-                "SLA":            "",
-                "Zone":           "",
-                "Working_Days":   "",
-                "Απαράδοτο":      is_apd,
-            })
-        new_df = pd.DataFrame(rows_to_add)
-        new_df = do_sla_matching_tk(new_df, master_sla)
-        new_df["_dm"] = pd.to_datetime(new_df["Ημ_Pickup"], errors="coerce")
-        new_df["_dp"] = pd.to_datetime(new_df["Ημ_Παράδοσης"], errors="coerce")
-        new_df["Working_Days"] = new_df.apply(lambda r: calc_working_days(r["_dm"],r["_dp"],holidays), axis=1)
-        new_df["SLA"] = new_df["SLA"].astype(str).replace("nan","")
-        new_df.drop(columns=["_dm","_dp"], inplace=True, errors="ignore")
-        ws = get_gsheet()
-        new_rows = new_df[MT_COLS].fillna("").astype(str).values.tolist()
-        # Write in batches of 1000
-        for i in range(0, len(new_rows), 1000):
-            gsheet_backoff(ws.append_rows, new_rows[i:i+1000], value_input_option="RAW")
-        load_master_table.clear()
-        return pd.DataFrame(), len(rows_to_add), 0, True, sha
+        # Sheet is empty — do nothing, wait for data to be populated manually
+        return pd.DataFrame(), 0, 0, False, sha
 
     existing["Αριθμός"] = existing["Αριθμός"].astype(str)
     existing_idx = existing.set_index("Αριθμός")
@@ -395,6 +360,7 @@ def update_master_table(df_new):
     return existing, n_new, n_updated, changed, sha
 
 # ---------- LOAD & PROCESS ----------
+@st.cache_resource
 def load_and_process():
     master_sla = load_sla_master()
     holidays   = load_holidays()
@@ -768,13 +734,21 @@ if "Επισκόπηση" in page:
             except:
                 df_new_data = None
             if df_new_data is not None:
-                _, n_new, n_updated, changed, _ = update_master_table(df_new_data)
-                if changed:
-                    load_and_process.clear()
-                    msg = f"✅ Νέο snapshot: <b>{n_new}</b> νέες αποστολές, <b>{n_updated}</b> pending → delivered"
-                    st.markdown(f'<div class="snap-ok">{msg}</div>', unsafe_allow_html=True)
-                else:
-                    st.markdown('<div class="snap-ok">✅ Καμία αλλαγή — δεν χρειάζεται νέο snapshot</div>', unsafe_allow_html=True)
+                try:
+                    existing_before, _ = load_master_table()
+                    n_existing = len(existing_before) if existing_before is not None else 0
+                    _, n_new, n_updated, changed, _ = update_master_table(df_new_data)
+                    existing_after, _ = load_master_table()
+                    n_after = len(existing_after) if existing_after is not None else 0
+                    st.markdown(f'<div class="snap-warn">🔍 DEBUG: Sheet πριν={n_existing} | data.csv={len(df_new_data)} | νέες={n_new} | updated={n_updated} | Sheet μετά={n_after}</div>', unsafe_allow_html=True)
+                    if changed:
+                        load_and_process.clear()
+                        msg = f"✅ Νέο snapshot: <b>{n_new}</b> νέες αποστολές, <b>{n_updated}</b> pending → delivered"
+                        st.markdown(f'<div class="snap-ok">{msg}</div>', unsafe_allow_html=True)
+                    else:
+                        st.markdown('<div class="snap-ok">✅ Καμία αλλαγή — δεν χρειάζεται νέο snapshot</div>', unsafe_allow_html=True)
+                except RuntimeError as e:
+                    st.markdown(f'<div class="snap-warn">⚠️ {e}</div>', unsafe_allow_html=True)
     else:
         st.markdown('<div class="snap-warn">⚠️ GitHub token δεν έχει οριστεί</div>', unsafe_allow_html=True)
 
