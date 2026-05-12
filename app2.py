@@ -647,18 +647,29 @@ if "Επισκόπηση" in page:
 
     late = delivered[~delivered["on_time"]].copy() if len(delivered) else pd.DataFrame()
 
-    def delay_donut_svg(count, pct_of_late, color, size=160):
+    def delay_donut_svg(count, z1, z2, z3, size=160):
+        """3-segment donut: z1=24h(green), z2=48h(orange), z3=72h(red)"""
         r=62; cx=cy=78; stroke=16; circ=2*3.14159*r
-        filled=circ*pct_of_late/100; gap=circ-filled
-        return f"""<svg viewBox="0 0 156 156" width="{size}" height="{size}" style="flex-shrink:0;">
-            <circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#f1f5f9" stroke-width="{stroke}"/>
-            <circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{color}" stroke-width="{stroke}"
-                stroke-dasharray="{filled:.2f} {gap:.2f}" stroke-linecap="round" transform="rotate(-90 {cx} {cy})"/>
-            <text x="{cx}" y="{cy-6}" text-anchor="middle" dominant-baseline="central"
-                font-family="Plus Jakarta Sans,sans-serif" font-size="22" font-weight="800" fill="#1a2235">{count:,}</text>
-            <text x="{cx}" y="{cy+16}" text-anchor="middle"
-                font-family="Plus Jakarta Sans,sans-serif" font-size="10" font-weight="600" fill="#8fa3c0">αποστολές</text>
-        </svg>"""
+        total = z1+z2+z3 if (z1+z2+z3)>0 else 1
+        # segments proportional to zone counts
+        s1=circ*z1/total; s2=circ*z2/total; s3=circ*z3/total
+        # build arcs: start at -90deg, segments in order 24h->48h->72h
+        def arc(cx,cy,r,stroke,color,dashlen,offset_deg):
+            gap=circ-dashlen
+            return f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{color}" stroke-width="{stroke}" stroke-dasharray="{dashlen:.2f} {gap:.2f}" stroke-linecap="butt" transform="rotate({offset_deg} {cx} {cy})"/>'
+        # cumulative offsets in degrees
+        deg1 = -90
+        deg2 = deg1 + 360*z1/total
+        deg3 = deg2 + 360*z2/total
+        svg = f'<svg viewBox="0 0 156 156" width="{size}" height="{size}" style="flex-shrink:0;">'
+        svg += f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#f1f5f9" stroke-width="{stroke}"/>'
+        if z1>0: svg += arc(cx,cy,r,stroke,"#22c55e",s1,deg1)
+        if z2>0: svg += arc(cx,cy,r,stroke,"#f97316",s2,deg2)
+        if z3>0: svg += arc(cx,cy,r,stroke,"#ef4444",s3,deg3)
+        svg += f'<text x="{cx}" y="{cy-6}" text-anchor="middle" dominant-baseline="central" font-family="Plus Jakarta Sans,sans-serif" font-size="22" font-weight="800" fill="#1a2235">{count:,}</text>'
+        svg += f'<text x="{cx}" y="{cy+16}" text-anchor="middle" font-family="Plus Jakarta Sans,sans-serif" font-size="10" font-weight="600" fill="#8fa3c0">αποστολές</text>'
+        svg += '</svg>'
+        return svg
 
     delay_cols = st.columns(3)
     delay_bands = [
@@ -677,15 +688,16 @@ if "Επισκόπηση" in page:
             pct = cnt / n_late * 100 if n_late else 0
             # breakdown by zone (24h=1, 48h=2, 72h=3)
             z1 = len(grp[grp["SLA"]==1]); z2 = len(grp[grp["SLA"]==2]); z3 = len(grp[grp["SLA"]==3])
+            pct_of_del = cnt / n_del * 100 if n_del else 0
             st.markdown(f"""<div style="background:white;border-radius:14px;padding:16px 20px;box-shadow:0 1px 8px rgba(0,0,0,0.07);border:1px solid #f0f2f5;display:flex;align-items:center;gap:16px;">
-                {delay_donut_svg(cnt, pct, color)}
+                {delay_donut_svg(cnt, z1, z2, z3)}
                 <div style="flex:1;">
                     <div style="font-size:11px;font-weight:700;color:#8fa3c0;text-transform:uppercase;margin-bottom:12px;">{lbl}</div>
-                    <div style="font-size:12px;margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#0ea5e9;margin-right:6px;"></span>24h <b>{z1:,}</b></div>
-                    <div style="font-size:12px;margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f97316;margin-right:6px;"></span>48h <b>{z2:,}</b></div>
-                    <div style="font-size:12px;margin-bottom:12px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7c3aed;margin-right:6px;"></span>72h <b>{z3:,}</b></div>
-                    <div style="font-size:11px;color:#8fa3c0;">% εκτός SLA</div>
-                    <div style="font-size:16px;font-weight:800;color:{color};">{pct:.1f}%</div>
+                    <div style="font-size:12px;margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:6px;"></span>24h <b>{z1:,}</b> <span style="color:#8fa3c0">({z1/cnt*100:.1f}%)</span></div>
+                    <div style="font-size:12px;margin-bottom:4px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f97316;margin-right:6px;"></span>48h <b>{z2:,}</b> <span style="color:#8fa3c0">({z2/cnt*100:.1f}%)</span></div>
+                    <div style="font-size:12px;margin-bottom:12px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ef4444;margin-right:6px;"></span>72h <b>{z3:,}</b> <span style="color:#8fa3c0">({z3/cnt*100:.1f}%)</span></div>
+                    <div style="font-size:11px;color:#8fa3c0;">% επί παραδοθέντων</div>
+                    <div style="font-size:16px;font-weight:800;color:#1a2235;">{pct_of_del:.1f}%</div>
                 </div>
             </div>""", unsafe_allow_html=True)
 
