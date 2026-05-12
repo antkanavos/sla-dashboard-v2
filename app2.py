@@ -242,6 +242,7 @@ MT_COLS = ["Αριθμός","Ημ_Pickup","Ημ_Παράδοσης","Ημ_Επι
 
 def update_master_table(df_new):
     """Update Google Sheet with new/updated shipments."""
+    load_master_table.clear()  # always read fresh from Sheet
     existing, sha = load_master_table()
     master_sla = load_sla_master()
     holidays   = load_holidays()
@@ -320,7 +321,8 @@ def update_master_table(df_new):
         new_df["SLA"] = new_df["SLA"].astype(str).replace("nan","")
         new_df.drop(columns=["_dm","_dp"], inplace=True, errors="ignore")
         new_rows = new_df[MT_COLS].fillna("").astype(str).values.tolist()
-        gsheet_backoff(ws.append_rows, new_rows, value_input_option="RAW")
+        for i in range(0, len(new_rows), 500):
+            gsheet_backoff(ws.append_rows, new_rows[i:i+500], value_input_option="RAW")
 
     # ── 2. Batch update pending→delivered ──
     if rows_updated:
@@ -357,6 +359,7 @@ def update_master_table(df_new):
             gsheet_backoff(ws.batch_update, batch)
 
     load_master_table.clear()
+    load_and_process.clear()
     return existing, n_new, n_updated, changed, sha
 
 # ---------- LOAD & PROCESS ----------
