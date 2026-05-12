@@ -384,7 +384,7 @@ def update_master_table(df_new):
     return existing, n_new, n_updated, changed, sha
 
 # ---------- LOAD & PROCESS ----------
-@st.cache_resource
+@st.cache_data(ttl=300)
 def load_and_process():
     master_sla = load_sla_master()
     holidays   = load_holidays()
@@ -473,7 +473,6 @@ with st.sidebar:
     ], label_visibility="collapsed")
 
 # ---------- LOAD DATA ----------
-load_and_process.clear()
 with st.spinner("Φόρτωση δεδομένων..."):
     df_full = load_and_process()
 
