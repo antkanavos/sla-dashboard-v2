@@ -369,26 +369,7 @@ def load_and_process():
     mt, _      = load_master_table()
 
     if mt is None or len(mt) == 0 or "Ημ_Pickup" not in mt.columns:
-        # Fallback: data.csv
-        try:
-            df = pd.read_csv(f"{GH_RAW}/data.csv")
-            df = df[df["Ονομασία Παράδοσης"].astype(str).str.strip() !=
-                    df["Ονομασία Πελάτη"].astype(str).str.strip()].copy()
-            df["ΤΚ"]   = df["Τ.Κ Παράδοσης"].apply(clean_pc)
-            df["Πόλη"] = df["Πόλη Παράδοσης"].apply(clean_city)
-            df = do_sla_matching_tk(df, master_sla)
-            df["Ημ/νία Pickup"] = pd.to_datetime(df["Ημ/νία Pickup"], dayfirst=True, errors="coerce")
-            df["Ημ/νία Παράδοσης"]   = pd.to_datetime(df["Ημ/νία Παράδοσης"],   dayfirst=True, errors="coerce")
-            df["Κωδ_Πελάτη"]  = df["Κωδ. Πελάτη"].astype(str)
-            df["Πελάτης"]     = df["Ονομασία Πελάτη"].astype(str)
-            df["Κωδ_Συμφωνίας"] = df["Κωδ. Συμφωνίας"].astype(str)
-            df["Συμφωνία"]    = df["Περιγραφή Συμφωνίας"].astype(str)
-            df["Κατάστημα"]   = df["Κωδ. Καταστήματος Παράδοσης"].astype(str) + " " + df["Κατάστημα Παραλαβής"].astype(str)
-            df["Απαράδοτο"]   = df.get("Ημ/νία Επιστροφής Απαραδότου","").astype(str).str.strip().apply(lambda x: x not in ("","nan","NaT"))
-            df["working_days"] = df.apply(lambda r: int(calc_working_days(r["Ημ/νία Pickup"],r["Ημ/νία Παράδοσης"],holidays) or -1), axis=1)
-            return df
-        except Exception as e:
-            return pd.DataFrame()
+        return pd.DataFrame()
 
     # Normal path: from Google Sheet
     col_map = {
