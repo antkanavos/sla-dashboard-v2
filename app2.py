@@ -384,22 +384,23 @@ def load_and_process():
         return pd.DataFrame()
 
     # Normal path: from Google Sheet
-    # Sheet columns: Ημ_Pickup, Ημ_Παράδοσης, Ημ_Επιστροφής, Κωδ_Καταστήματος
-    # Rename to internal names used throughout app
-    df = mt.copy()
-    df = df.rename(columns={
-        "Ημ_Pickup":         "Ημ/νία Pickup",
-        "Ημ_Παράδοσης":      "Ημ/νία Παράδοσης",
-        "Ημ_Επιστροφής":     "Ημ/νία Επιστροφής",
-        "Ημ_Δημιουργίας":    "Ημ/νία Δημιουργίας",
-        "Κωδ_Καταστήματος":  "Κωδ. Καταστήματος Παράδοσης",
-    })
+    # Sheet has columns: Ημ_Pickup, Ημ_Παράδοσης etc — rename to app internal names
+    df = mt.rename(columns={
+        "Ημ_Pickup":        "Ημ/νία Pickup",
+        "Ημ_Παράδοσης":     "Ημ/νία Παράδοσης",
+        "Ημ_Επιστροφής":    "Ημ/νία Επιστροφής",
+        "Ημ_Δημιουργίας":   "Ημ/νία Δημιουργίας",
+        "Κωδ_Καταστήματος": "Κωδ. Καταστήματος Παράδοσης",
+    }, inplace=False).copy()
+
     df["Κατάστημα"] = df.get("Κωδ. Καταστήματος Παράδοσης", pd.Series("", index=df.index)).astype(str).str.strip() + " " + df.get("Κατάστημα", pd.Series("", index=df.index)).astype(str).str.strip()
 
     # Dates — robust parser handles both yyyy-mm-dd and dd/mm/yyyy
-    df["Ημ/νία Pickup"]     = parse_date_robust(df["Ημ/νία Pickup"])
-    df["Ημ/νία Παράδοσης"]  = parse_date_robust(df["Ημ/νία Παράδοσης"])
-    df["Ημ/νία Επιστροφής"] = parse_date_robust(df.get("Ημ/νία Επιστροφής", pd.Series("", index=df.index)))
+    for col in ["Ημ/νία Pickup", "Ημ/νία Παράδοσης", "Ημ/νία Επιστροφής"]:
+        if col in df.columns:
+            df[col] = parse_date_robust(df[col])
+        else:
+            df[col] = pd.NaT
 
     # SLA for rows missing it
     needs_sla = df["SLA"].isna() | df["SLA"].astype(str).str.strip().isin(["","nan"])
