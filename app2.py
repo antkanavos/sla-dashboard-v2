@@ -173,6 +173,18 @@ def normalize_date(d):
     except:
         return str(d).strip()
 
+def parse_date_robust(series):
+    """Parse dates that may be dd/mm/yyyy OR yyyy-mm-dd. Detects format per-value."""
+    s = series.astype(str).str.strip().replace({"":"NaT","nan":"NaT","None":"NaT","NaT":"NaT"})
+    iso_mask = s.str.match(r"^\d{4}-\d{2}-\d{2}")
+    parsed = pd.Series(pd.NaT, index=s.index)
+    if iso_mask.any():
+        parsed[iso_mask] = pd.to_datetime(s[iso_mask], errors="coerce")
+    non_iso = ~iso_mask & (s != "NaT")
+    if non_iso.any():
+        parsed[non_iso] = pd.to_datetime(s[non_iso], dayfirst=True, errors="coerce")
+    return parsed
+
 def zone_to_sla(zone):
     """Convert zone name to SLA days."""
     z = str(zone).strip().lower()
