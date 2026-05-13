@@ -401,6 +401,8 @@ def load_and_process():
             df[col] = parse_date_robust(df[col])
         else:
             df[col] = pd.NaT
+    # Debug: check columns after rename
+    st.session_state["_debug_cols"] = f"Cols after rename: {[c for c in df.columns]} | Pickup sample: {df['Ημ/νία Pickup'].dropna().head(3).tolist()}"
 
     # SLA for rows missing it
     needs_sla = df["SLA"].isna() | df["SLA"].astype(str).str.strip().isin(["","nan"])
@@ -474,8 +476,12 @@ if df_full is None or len(df_full) == 0:
     st.stop()
 
 # ---------- CLIENT/AGREEMENT FILTERS (always visible) ----------
-min_d = df_full["Ημ/νία Pickup"].min().date()
-max_d = df_full["Ημ/νία Pickup"].max().date()
+_pickup_valid = df_full["Ημ/νία Pickup"].dropna()
+if len(_pickup_valid) == 0:
+    st.error("Δεν βρέθηκαν έγκυρες ημερομηνίες Pickup.")
+    st.stop()
+min_d = _pickup_valid.min().date()
+max_d = _pickup_valid.max().date()
 
 # Build client list with name (code - name)
 client_options = {"Όλοι": "Όλοι"}
