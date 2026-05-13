@@ -368,8 +368,7 @@ def load_and_process():
     holidays   = load_holidays()
     mt, _      = load_master_table()
 
-    if mt is None or len(mt) == 0 or "Ημ_Pickup" not in mt.columns:
-        st.error(f"Sheet empty or missing columns. mt={mt is not None}, len={len(mt) if mt is not None else 0}, cols={list(mt.columns) if mt is not None and len(mt)>0 else []}")
+    if mt is None or len(mt) == 0:
         return pd.DataFrame()
 
     # Normal path: from Google Sheet
