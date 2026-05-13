@@ -372,19 +372,22 @@ def load_and_process():
         return pd.DataFrame()
 
     # Normal path: from Google Sheet
-    col_map = {
-        "Ημ_Pickup": "Ημ/νία Pickup",
-        "Ημ_Παράδοσης":   "Ημ/νία Παράδοσης",
-        "Ημ_Επιστροφής":  "Ημ/νία Επιστροφής",
-        "Κωδ_Καταστήματος": "Κωδ. Καταστήματος Παράδοσης",
-    }
-    df = mt.rename(columns={k:v for k,v in col_map.items() if k in mt.columns})
-    df["Κατάστημα"] = df.get("Κωδ. Καταστήματος Παράδοσης","").astype(str).str.strip() + " " + df.get("Κατάστημα","").astype(str).str.strip()
+    # Sheet columns: Ημ_Pickup, Ημ_Παράδοσης, Ημ_Επιστροφής, Κωδ_Καταστήματος
+    # Rename to internal names used throughout app
+    df = mt.copy()
+    df = df.rename(columns={
+        "Ημ_Pickup":         "Ημ/νία Pickup",
+        "Ημ_Παράδοσης":      "Ημ/νία Παράδοσης",
+        "Ημ_Επιστροφής":     "Ημ/νία Επιστροφής",
+        "Ημ_Δημιουργίας":    "Ημ/νία Δημιουργίας",
+        "Κωδ_Καταστήματος":  "Κωδ. Καταστήματος Παράδοσης",
+    })
+    df["Κατάστημα"] = df.get("Κωδ. Καταστήματος Παράδοσης", pd.Series("", index=df.index)).astype(str).str.strip() + " " + df.get("Κατάστημα", pd.Series("", index=df.index)).astype(str).str.strip()
 
-    # Dates — ISO format (yyyy-mm-dd) from Sheet, no dayfirst
-    df["Ημ/νία Pickup"]      = pd.to_datetime(df["Ημ/νία Pickup"],    errors="coerce")
-    df["Ημ/νία Παράδοσης"]   = pd.to_datetime(df["Ημ/νία Παράδοσης"].astype(str).str.strip().replace({"":"NaT","nan":"NaT"}), errors="coerce")
-    df["Ημ/νία Επιστροφής"]  = pd.to_datetime(df.get("Ημ/νία Επιστροφής","").astype(str).str.strip().replace({"":"NaT","nan":"NaT"}), errors="coerce")
+    # Dates — robust parser handles both yyyy-mm-dd and dd/mm/yyyy
+    df["Ημ/νία Pickup"]     = parse_date_robust(df["Ημ/νία Pickup"])
+    df["Ημ/νία Παράδοσης"]  = parse_date_robust(df["Ημ/νία Παράδοσης"])
+    df["Ημ/νία Επιστροφής"] = parse_date_robust(df.get("Ημ/νία Επιστροφής", pd.Series("", index=df.index)))
 
     # SLA for rows missing it
     needs_sla = df["SLA"].isna() | df["SLA"].astype(str).str.strip().isin(["","nan"])
