@@ -477,6 +477,7 @@ if df_full is None or len(df_full) == 0:
 
 # ---------- CLIENT/AGREEMENT FILTERS (always visible) ----------
 _pickup_valid = df_full["Ημ/νία Pickup"].dropna()
+st.write(f"DEBUG pickup: total={len(df_full)}, valid={len(_pickup_valid)}, cols={list(df_full.columns)}, sample_raw={df_full['Ημ/νία Pickup'].head(3).tolist()}")
 if len(_pickup_valid) == 0:
     st.error("Δεν βρέθηκαν έγκυρες ημερομηνίες Pickup.")
     st.stop()
