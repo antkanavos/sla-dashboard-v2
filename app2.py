@@ -395,14 +395,14 @@ def load_and_process():
 
     df["Κατάστημα"] = df.get("Κωδ. Καταστήματος Παράδοσης", pd.Series("", index=df.index)).astype(str).str.strip() + " " + df.get("Κατάστημα", pd.Series("", index=df.index)).astype(str).str.strip()
 
+    # Debug raw values before parsing
+    st.write(f"RAW Pickup before parse: {df['Ημ/νία Pickup'].head(5).tolist()}")
     # Dates — robust parser handles both yyyy-mm-dd and dd/mm/yyyy
     for col in ["Ημ/νία Pickup", "Ημ/νία Παράδοσης", "Ημ/νία Επιστροφής"]:
         if col in df.columns:
             df[col] = parse_date_robust(df[col])
         else:
             df[col] = pd.NaT
-    # Debug: check columns after rename
-    st.session_state["_debug_cols"] = f"Cols after rename: {[c for c in df.columns]} | Pickup sample: {df['Ημ/νία Pickup'].dropna().head(3).tolist()}"
 
     # SLA for rows missing it
     needs_sla = df["SLA"].isna() | df["SLA"].astype(str).str.strip().isin(["","nan"])
