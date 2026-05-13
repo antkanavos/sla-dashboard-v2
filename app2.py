@@ -359,7 +359,6 @@ def update_master_table(df_new):
             gsheet_backoff(ws.batch_update, batch)
 
     load_master_table.clear()
-    load_and_process.clear()
     return existing, n_new, n_updated, changed, sha
 
 # ---------- LOAD & PROCESS ----------
