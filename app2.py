@@ -386,20 +386,15 @@ def load_and_process():
     # Normal path: from Google Sheet
     # Sheet has columns: Ημ_Pickup, Ημ_Παράδοσης etc — rename to app internal names
     df = mt.rename(columns={
-        "Ημ_Pickup":        "Ημ/νία Pickup",
+        "Ημ_Δημιουργίας":   "Ημ/νία Pickup",
         "Ημ_Παράδοσης":     "Ημ/νία Παράδοσης",
         "Ημ_Επιστροφής":    "Ημ/νία Επιστροφής",
-        "Ημ_Δημιουργίας":   "Ημ/νία Δημιουργίας",
         "Κωδ_Καταστήματος": "Κωδ. Καταστήματος Παράδοσης",
     }, inplace=False).copy()
 
     df["Κατάστημα"] = df.get("Κωδ. Καταστήματος Παράδοσης", pd.Series("", index=df.index)).astype(str).str.strip() + " " + df.get("Κατάστημα", pd.Series("", index=df.index)).astype(str).str.strip()
 
-    # Debug raw values before parsing
-    st.write(f"COLS after rename: {list(df.columns)}")
-    st.write(f"RAW Ημ_Pickup in df: {'Ημ_Pickup' in df.columns}, Ημ/νία Pickup: {'Ημ/νία Pickup' in df.columns}")
-    if 'Ημ_Pickup' in df.columns:
-        st.write(f"RAW sample: {df['Ημ_Pickup'].head(3).tolist()}")
+
     # Dates — robust parser handles both yyyy-mm-dd and dd/mm/yyyy
     for col in ["Ημ/νία Pickup", "Ημ/νία Παράδοσης", "Ημ/νία Επιστροφής"]:
         if col in df.columns:
@@ -480,7 +475,6 @@ if df_full is None or len(df_full) == 0:
 
 # ---------- CLIENT/AGREEMENT FILTERS (always visible) ----------
 _pickup_valid = df_full["Ημ/νία Pickup"].dropna()
-st.write(f"DEBUG pickup: total={len(df_full)}, valid={len(_pickup_valid)}, cols={list(df_full.columns)}, sample_raw={df_full['Ημ/νία Pickup'].head(3).tolist()}")
 if len(_pickup_valid) == 0:
     st.error("Δεν βρέθηκαν έγκυρες ημερομηνίες Pickup.")
     st.stop()
