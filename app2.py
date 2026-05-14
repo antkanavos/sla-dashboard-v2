@@ -303,6 +303,13 @@ with st.sidebar:
     st.markdown("### ΠΛΟΗΓΗΣΗ")
     page = st.radio("", ["Επισκόπηση","Ανάλυση Νομού","Ανάλυση Καταστήματος"], label_visibility="collapsed")
 
+# ---------- UPDATE SHEET (before load) ----------
+try:
+    _df_csv = pd.read_csv(f"{GH_RAW}/data.csv")
+    update_master_table(_df_csv)
+except Exception:
+    pass  # silent — show error in snapshot section
+
 # ---------- LOAD DATA ----------
 try:
     df_full = load_and_process()
