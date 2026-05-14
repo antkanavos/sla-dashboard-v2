@@ -396,7 +396,10 @@ def load_and_process():
     df["Κατάστημα"] = df.get("Κωδ. Καταστήματος Παράδοσης", pd.Series("", index=df.index)).astype(str).str.strip() + " " + df.get("Κατάστημα", pd.Series("", index=df.index)).astype(str).str.strip()
 
     # Debug raw values before parsing
-    st.write(f"RAW Pickup before parse: {df['Ημ/νία Pickup'].head(5).tolist()}")
+    st.write(f"COLS after rename: {list(df.columns)}")
+    st.write(f"RAW Ημ_Pickup in df: {'Ημ_Pickup' in df.columns}, Ημ/νία Pickup: {'Ημ/νία Pickup' in df.columns}")
+    if 'Ημ_Pickup' in df.columns:
+        st.write(f"RAW sample: {df['Ημ_Pickup'].head(3).tolist()}")
     # Dates — robust parser handles both yyyy-mm-dd and dd/mm/yyyy
     for col in ["Ημ/νία Pickup", "Ημ/νία Παράδοσης", "Ημ/νία Επιστροφής"]:
         if col in df.columns:
