@@ -32,7 +32,7 @@ def check_password():
         st.markdown("### 🔐 SLA Dashboard")
         pwd = st.text_input("Κωδικός", type="password", key="pwd_input")
         if pwd:
-            if pwd == st.secrets.get("APP_PASSWORD","sla2026"):
+            if pwd == str(st.secrets.get("APP_PASSWORD","sla2026")):
                 st.session_state["auth"] = True
                 st.rerun()
             else:
@@ -43,9 +43,9 @@ if not check_password():
     st.stop()
 
 # ---------- GITHUB ----------
-GH_REPO   = st.secrets.get("GH_REPO","antkanavos/sla-dashboard-v2")
-GH_BRANCH = st.secrets.get("GH_BRANCH","main")
-GH_TOKEN  = st.secrets.get("GH_TOKEN","")
+GH_REPO   = st.secrets.get("github",{}).get("repo","antkanavos/sla-dashboard-v2")
+GH_BRANCH = st.secrets.get("github",{}).get("branch","main")
+GH_TOKEN  = st.secrets.get("github",{}).get("token","")
 GH_RAW    = f"https://raw.githubusercontent.com/{GH_REPO}/{GH_BRANCH}"
 
 def gh_get(path):
@@ -61,10 +61,19 @@ def gh_put(path, content_str, message, sha=None):
     return r.ok
 
 # ---------- GOOGLE SHEETS ----------
-SHEET_ID = st.secrets.get("SHEET_ID","1VAdsukayM3JHtCZa7e8eP4Uy_yAIgsXIGWJSY4PwnMM")
+SHEET_ID = st.secrets.get("gsheets",{}).get("spreadsheet_id","1VAdsukayM3JHtCZa7e8eP4Uy_yAIgsXIGWJSY4PwnMM")
 
 def get_gsheet():
-    creds_dict = json.loads(st.secrets["GOOGLE_CREDENTIALS"])
+    gs = st.secrets["gsheets"]
+    creds_dict = {
+        "type": gs["type"],
+        "project_id": gs["project_id"],
+        "private_key_id": gs["private_key_id"],
+        "private_key": gs["private_key"],
+        "client_email": gs["client_email"],
+        "client_id": gs["client_id"],
+        "token_uri": gs["token_uri"],
+    }
     creds = Credentials.from_service_account_info(creds_dict, scopes=[
         "https://spreadsheets.google.com/feeds",
         "https://www.googleapis.com/auth/drive"
