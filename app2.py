@@ -371,9 +371,9 @@ sel_agr = agr_options[sel_agr_label]
 # Date filters
 dc1, dc2 = st.columns(2)
 with dc1:
-    date_from = st.date_input("Από", value=min_d, min_value=min_d, max_value=max_d, key="ep_df")
+    date_from = st.date_input("Από", value=min_d, min_value=min_d, max_value=max_d, key="ep_df", format="DD/MM/YYYY")
 with dc2:
-    date_to   = st.date_input("Έως", value=max_d, min_value=min_d, max_value=max_d, key="ep_dt")
+    date_to   = st.date_input("Έως", value=max_d, min_value=min_d, max_value=max_d, key="ep_dt", format="DD/MM/YYYY")
 
 # Apply filters
 df = df_full.copy()
@@ -610,8 +610,8 @@ elif page == "Ανάλυση Νομού":
         return grp.sort_values("total", ascending=False)
 
     dc1,dc2 = st.columns(2)
-    with dc1: d_from = st.date_input("Από",value=min_d,min_value=min_d,max_value=max_d,key="nm_df")
-    with dc2: d_to   = st.date_input("Έως",value=max_d,min_value=min_d,max_value=max_d,key="nm_dt")
+    with dc1: d_from = st.date_input("Από",value=min_d,min_value=min_d,max_value=max_d,key="nm_df",format="DD/MM/YYYY")
+    with dc2: d_to   = st.date_input("Έως",value=max_d,min_value=min_d,max_value=max_d,key="nm_dt",format="DD/MM/YYYY")
 
     grp = period_stats(d_from, d_to)
     if len(grp):
@@ -634,8 +634,8 @@ elif page == "Ανάλυση Καταστήματος":
     st.markdown('<div class="section-header">ΑΝΑΛΥΣΗ ΑΝΑ ΚΑΤΑΣΤΗΜΑ</div>', unsafe_allow_html=True)
 
     dc1,dc2 = st.columns(2)
-    with dc1: d_from = st.date_input("Από",value=min_d,min_value=min_d,max_value=max_d,key="sh_df")
-    with dc2: d_to   = st.date_input("Έως",value=max_d,min_value=min_d,max_value=max_d,key="sh_dt")
+    with dc1: d_from = st.date_input("Από",value=min_d,min_value=min_d,max_value=max_d,key="sh_df",format="DD/MM/YYYY")
+    with dc2: d_to   = st.date_input("Έως",value=max_d,min_value=min_d,max_value=max_d,key="sh_dt",format="DD/MM/YYYY")
 
     sub = df[(df["Ημ/νία Pickup"].dt.date >= d_from) & (df["Ημ/νία Pickup"].dt.date <= d_to)]
     if len(sub):
