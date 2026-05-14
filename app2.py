@@ -117,12 +117,14 @@ def load_customers():
 def normalize_date(d):
     if not d or str(d).strip() in ("","nan","NaT","None"): return ""
     try:
-        return pd.to_datetime(str(d), dayfirst=True, errors="coerce").strftime("%Y-%m-%d")
+        parsed = pd.to_datetime(str(d), dayfirst=True, errors="coerce")
+        if pd.isna(parsed): return ""
+        return parsed.strftime("%d/%m/%Y")
     except:
         return str(d).strip()
 
 def parse_date_robust(series):
-    s = series.astype(str).str.strip().replace({"":"NaT","nan":"NaT","None":"NaT","NaT":"NaT"})
+    s = series.astype(str).str.strip().str.lstrip("'").replace({"":"NaT","nan":"NaT","None":"NaT","NaT":"NaT"})
     iso_mask = s.str.match(r"^\d{4}-\d{2}-\d{2}")
     parsed = pd.Series(pd.NaT, index=s.index)
     if iso_mask.any():
