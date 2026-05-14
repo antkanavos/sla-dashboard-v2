@@ -306,12 +306,16 @@ with st.sidebar:
     st.markdown("### ΠΛΟΗΓΗΣΗ")
     page = st.radio("", ["Επισκόπηση","Ανάλυση Νομού","Ανάλυση Καταστήματος"], label_visibility="collapsed")
 
-# ---------- UPDATE SHEET (before load) ----------
-try:
-    _df_csv = pd.read_csv(f"{GH_RAW}/data.csv")
-    update_master_table(_df_csv)
-except Exception:
-    pass  # silent — show error in snapshot section
+# ---------- UPDATE SHEET (before load, cached by CSV hash) ----------
+@st.cache_data(ttl=300)
+def run_update_once():
+    try:
+        _df_csv = pd.read_csv(f"{GH_RAW}/data.csv")
+        update_master_table(_df_csv)
+    except Exception:
+        pass
+
+run_update_once()
 
 # ---------- LOAD DATA ----------
 try:
