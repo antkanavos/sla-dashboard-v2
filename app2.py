@@ -171,7 +171,24 @@ def update_master_table(df_new):
             df_new[col] = df_new[col].apply(normalize_date)
 
     if existing.empty:
-        return existing, 0, 0, False, sha
+        # Sheet has only headers — insert all rows from data.csv
+        rows_to_add = []
+        for _, row in df_new.iterrows():
+            r = {}
+            for col in MT_COLS:
+                val = str(row.get(col,"")).strip() if col in df_new.columns else ""
+                if "Date" in col:
+                    val = normalize_date(val)
+                r[col] = val
+            rows_to_add.append(r)
+        if rows_to_add:
+            ws = get_gsheet()
+            new_df = pd.DataFrame(rows_to_add)
+            new_rows = new_df[MT_COLS].fillna("").astype(str).values.tolist()
+            for i in range(0, len(new_rows), 500):
+                gsheet_backoff(ws.append_rows, new_rows[i:i+500], value_input_option="RAW")
+            load_master_table.clear()
+        return pd.DataFrame(), len(rows_to_add), 0, len(rows_to_add)>0, sha
 
     existing_ids = set(existing[consignment_col].astype(str).str.strip().tolist())
 
