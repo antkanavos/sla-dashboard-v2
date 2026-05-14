@@ -23,6 +23,7 @@ hr.divider{border:none;border-top:1px solid #f0f2f5;margin:20px 0}
 .snap-warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 14px;font-size:12px;color:#9a3412}
 [data-testid="stSidebar"]{background:#1a2235!important}
 [data-testid="stSidebar"] *{color:white!important}
+[data-testid="stSidebar"] input{color:#1a2235!important;background:white!important}
 </style>""", unsafe_allow_html=True)
 
 # ---------- PASSWORD ----------
@@ -582,7 +583,6 @@ if page == "Επισκόπηση":
             _, n_new, n_updated, changed, _ = update_master_table(df_new_data)
             existing_after, _ = load_master_table()
             n_after = len(existing_after) if existing_after is not None else 0
-            st.markdown(f'<div class="snap-warn">🔍 DEBUG: Sheet πριν={n_existing} | data.csv={len(df_new_data)} | νέες={n_new} | updated={n_updated} | Sheet μετά={n_after}</div>', unsafe_allow_html=True)
             if changed:
                 load_and_process.clear()
                 st.markdown(f'<div class="snap-ok">✅ Νέο snapshot: <b>{n_new}</b> νέες αποστολές, <b>{n_updated}</b> ενημερώθηκαν</div>', unsafe_allow_html=True)
