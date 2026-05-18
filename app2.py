@@ -306,16 +306,22 @@ with st.sidebar:
     st.markdown("### ΠΛΟΗΓΗΣΗ")
     page = st.radio("", ["Επισκόπηση","Ανάλυση Νομού","Ανάλυση Καταστήματος"], label_visibility="collapsed")
 
-# ---------- UPDATE SHEET (before load, cached by CSV hash) ----------
-@st.cache_data(ttl=300)
-def run_update_once():
+# ---------- UPDATE SHEET (cached by data.csv SHA) ----------
+@st.cache_data(ttl=3600)
+def get_data_csv_sha():
+    info = gh_get("data.csv")
+    return info.get("sha","") if info else ""
+
+@st.cache_data(ttl=3600)
+def run_update_once(sha):
     try:
         _df_csv = pd.read_csv(f"{GH_RAW}/data.csv")
         update_master_table(_df_csv)
     except Exception:
         pass
 
-run_update_once()
+_csv_sha = get_data_csv_sha()
+run_update_once(_csv_sha)
 
 # ---------- LOAD DATA ----------
 try:
