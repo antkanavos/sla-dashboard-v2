@@ -55,7 +55,10 @@ def gh_get(path):
     if GH_TOKEN:
         headers["Authorization"] = f"token {GH_TOKEN}"
     r = requests.get(url, headers=headers)
-    return r.json() if r.ok else None
+    if not r.ok:
+        st.warning(f"gh_get failed: {r.status_code} {r.text[:200]}")
+        return None
+    return r.json()
 
 def gh_put(path, content_str, message, sha=None):
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{path}"
