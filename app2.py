@@ -321,6 +321,7 @@ def run_update_once(sha):
         pass
 
 _csv_sha = get_data_csv_sha()
+st.write(f"DEBUG SHA: {_csv_sha}")
 run_update_once(_csv_sha)
 
 # ---------- LOAD DATA ----------
