@@ -320,8 +320,12 @@ def run_update_once(sha):
     except Exception:
         pass
 
-_csv_sha = get_data_csv_sha()
-st.write(f"DEBUG SHA: {_csv_sha}")
+try:
+    _csv_sha = get_data_csv_sha()
+except Exception as e:
+    _csv_sha = ""
+    st.error(f"SHA error: {e}")
+st.write(f"DEBUG SHA: '{_csv_sha}' | GH_REPO: {GH_REPO} | GH_TOKEN: {'set' if GH_TOKEN else 'MISSING'}")
 run_update_once(_csv_sha)
 
 # ---------- LOAD DATA ----------
