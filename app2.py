@@ -51,14 +51,16 @@ GH_RAW    = f"https://raw.githubusercontent.com/{GH_REPO}/{GH_BRANCH}"
 
 def gh_get(path):
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{path}?ref={GH_BRANCH}"
-    headers = {}
+    # Try without auth first (works for public repos)
+    r = requests.get(url)
+    if r.ok:
+        return r.json()
+    # Try with token if available
     if GH_TOKEN:
-        headers["Authorization"] = f"token {GH_TOKEN}"
-    r = requests.get(url, headers=headers)
-    if not r.ok:
-        st.warning(f"gh_get failed: {r.status_code} {r.text[:200]}")
-        return None
-    return r.json()
+        r = requests.get(url, headers={"Authorization": f"token {GH_TOKEN}"})
+        if r.ok:
+            return r.json()
+    return None
 
 def gh_put(path, content_str, message, sha=None):
     url = f"https://api.github.com/repos/{GH_REPO}/contents/{path}"
