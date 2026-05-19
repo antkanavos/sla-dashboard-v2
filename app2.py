@@ -275,8 +275,12 @@ def update_master_table(df_new):
     return existing, n_new, n_updated, changed, sha
 
 # ---------- LOAD & PROCESS ----------
-@st.cache_data(ttl=120)
+_DF_FULL = None
+
 def load_and_process():
+    global _DF_FULL
+    if _DF_FULL is not None:
+        return _DF_FULL
     mt, _ = load_master_table()
 
     if mt is None or len(mt) == 0:
@@ -303,6 +307,7 @@ def load_and_process():
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
 
+    _DF_FULL = df
     return df
 
 # ---------- METRICS ----------
@@ -322,7 +327,7 @@ with st.sidebar:
     st.markdown("## 📦 SLA Dashboard")
     st.markdown("---")
     st.markdown("### ΠΛΟΗΓΗΣΗ")
-    page = st.radio("", ["Επισκόπηση","Ανάλυση Νομού","Ανάλυση Καταστήματος"], label_visibility="collapsed")
+    page = st.radio("Σελίδα", ["Επισκόπηση","Ανάλυση Νομού","Ανάλυση Καταστήματος"], label_visibility="collapsed")
 
 # ---------- UPDATE SHEET (cached by data.csv SHA) ----------
 # ---------- UPDATE SHEET ----------
@@ -331,7 +336,7 @@ def get_csv_sha():
     info = gh_get("data.csv")
     return info.get("sha","") if info else ""
 
-@st.cache_data(ttl=120)
+@st.cache_data(ttl=3600)
 def run_cached_update(sha):
     try:
         _df_csv = pd.read_csv(f"{GH_RAW}/data.csv")
@@ -343,7 +348,8 @@ def run_cached_update(sha):
 _sha = get_csv_sha()
 _n_new, _n_updated, _changed = run_cached_update(_sha)
 if _changed:
-    load_and_process.clear()
+    global _DF_FULL
+    _DF_FULL = None
 
 # ---------- LOAD DATA ----------
 try:
