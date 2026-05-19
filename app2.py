@@ -348,7 +348,6 @@ def run_cached_update(sha):
 _sha = get_csv_sha()
 _n_new, _n_updated, _changed = run_cached_update(_sha)
 if _changed:
-    global _DF_FULL
     _DF_FULL = None
 
 # ---------- LOAD DATA ----------
