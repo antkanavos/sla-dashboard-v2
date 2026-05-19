@@ -189,6 +189,7 @@ def update_master_table(df_new):
         if col in df_new.columns:
             df_new[col] = df_new[col].apply(normalize_date)
 
+    st.write(f"existing rows={len(existing)}, df_new rows={len(df_new)}")
     if existing.empty:
         # Sheet has only headers — insert all rows from data.csv
         rows_to_add = []
