@@ -329,25 +329,6 @@ with st.sidebar:
 
 # ---------- UPDATE SHEET (cached by data.csv SHA) ----------
 # ---------- UPDATE SHEET ----------
-@st.cache_data(ttl=60)
-def get_csv_sha():
-    info = gh_get("data.csv")
-    return info.get("sha","") if info else ""
-
-@st.cache_data(ttl=3600)
-def run_cached_update(sha):
-    try:
-        _df_csv = pd.read_csv(f"{GH_RAW}/data.csv")
-        _, n_new, n_updated, changed, _ = update_master_table(_df_csv)
-        return n_new, n_updated, changed
-    except Exception as e:
-        return 0, 0, False
-
-_sha = get_csv_sha()
-_n_new, _n_updated, _changed = run_cached_update(_sha)
-if _changed:
-    load_and_process.clear()
-
 # ---------- LOAD DATA ----------
 try:
     df_full = load_and_process()
@@ -612,10 +593,16 @@ if page == "Επισκόπηση":
     st.markdown('<div class="section-header">ΕΝΗΜΕΡΩΣΗ ΔΕΔΟΜΕΝΩΝ</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Αυτόματο snapshot κάθε φορά που ανεβαίνει νέο data.csv</div>', unsafe_allow_html=True)
 
-    if _changed:
-        st.markdown(f'<div class="snap-ok">✅ Νέο snapshot: <b>{_n_new}</b> νέες αποστολές, <b>{_n_updated}</b> ενημερώθηκαν</div>', unsafe_allow_html=True)
-    else:
-        st.markdown('<div class="snap-ok">✅ Καμία αλλαγή — δεν χρειάζεται νέο snapshot</div>', unsafe_allow_html=True)
+    try:
+        _df_csv = pd.read_csv(f"{GH_RAW}/data.csv")
+        _, _n_new, _n_updated, _changed, _ = update_master_table(_df_csv)
+        if _changed:
+            load_and_process.clear()
+            st.markdown(f'<div class="snap-ok">✅ Νέο snapshot: <b>{_n_new}</b> νέες αποστολές, <b>{_n_updated}</b> ενημερώθηκαν</div>', unsafe_allow_html=True)
+        else:
+            st.markdown('<div class="snap-ok">✅ Καμία αλλαγή — δεν χρειάζεται νέο snapshot</div>', unsafe_allow_html=True)
+    except Exception as e:
+        st.markdown(f'<div class="snap-warn">⚠️ {e}</div>', unsafe_allow_html=True)
 
 # ════════════════════════════════════
 # ΑΝΑΛΥΣΗ ΝΟΜΟΥ
