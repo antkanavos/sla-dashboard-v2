@@ -331,11 +331,15 @@ with st.sidebar:
 with st.spinner("🔄 Έλεγχος αλλαγών..."):
     try:
         _df_csv = pd.read_csv(f"{GH_RAW}/data.csv")
+        st.write(f"CSV loaded: {len(_df_csv)} rows")
         _, _n_new, _n_updated, _changed, _ = update_master_table(_df_csv)
+        st.write(f"Update done: new={_n_new} updated={_n_updated} changed={_changed}")
         if _changed:
             load_and_process.clear()
     except Exception as e:
         st.error(f"Update error: {e}")
+        import traceback
+        st.code(traceback.format_exc())
 
 # ---------- LOAD DATA ----------
 try:
