@@ -103,11 +103,13 @@ def gsheet_backoff(func, *args, **kwargs):
 @st.cache_data(ttl=60)
 def load_master_table():
     try:
-        ws   = get_gsheet()
-        data = ws.get_all_records(default_blank="")
-        if not data:
+        ws = get_gsheet()
+        values = ws.get_all_values()
+        if not values or len(values) < 2:
             return pd.DataFrame(), None
-        df = pd.DataFrame(data, dtype=str).replace({"nan":"","NaT":"","None":""})
+        headers = values[0]
+        df = pd.DataFrame(values[1:], columns=headers, dtype=str)
+        df = df.replace({"nan":"","NaT":"","None":""})
         return df, None
     except Exception as e:
         raise RuntimeError(f"Αποτυχία ανάγνωσης Google Sheet: {e}")
@@ -275,12 +277,8 @@ def update_master_table(df_new):
     return existing, n_new, n_updated, changed, sha
 
 # ---------- LOAD & PROCESS ----------
-_DF_FULL = None
-
+@st.cache_resource
 def load_and_process():
-    global _DF_FULL
-    if _DF_FULL is not None:
-        return _DF_FULL
     mt, _ = load_master_table()
 
     if mt is None or len(mt) == 0:
@@ -307,7 +305,6 @@ def load_and_process():
         if col in df.columns:
             df[col] = pd.to_numeric(df[col], errors="coerce").fillna(0).astype(int)
 
-    _DF_FULL = df
     return df
 
 # ---------- METRICS ----------
@@ -348,7 +345,7 @@ def run_cached_update(sha):
 _sha = get_csv_sha()
 _n_new, _n_updated, _changed = run_cached_update(_sha)
 if _changed:
-    _DF_FULL = None
+    load_and_process.clear()
 
 # ---------- LOAD DATA ----------
 try:
