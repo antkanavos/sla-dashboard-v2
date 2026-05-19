@@ -189,7 +189,6 @@ def update_master_table(df_new):
         if col in df_new.columns:
             df_new[col] = df_new[col].apply(normalize_date)
 
-    st.write(f"existing rows={len(existing)}, df_new rows={len(df_new)}")
     if existing.empty:
         # Sheet has only headers — insert all rows from data.csv
         rows_to_add = []
@@ -213,12 +212,10 @@ def update_master_table(df_new):
     existing_ids = set(existing[consignment_col].astype(str).str.strip().str.zfill(12).tolist())
 
     # Debug
-    st.write(f"UPDATE DEBUG: existing={len(existing_ids)} | csv={len(df_new)} | sample_existing={list(existing_ids)[:3]} | sample_csv={df_new[consignment_col].head(3).tolist()}")
 
     # New rows
     new_mask = ~df_new[consignment_col].isin(existing_ids)
     new_rows_df = df_new[new_mask].copy()
-    st.write(f"new_mask true={new_mask.sum()}")
 
     # Build rows to append
     rows_to_add = []
@@ -329,18 +326,24 @@ with st.sidebar:
 
 # ---------- UPDATE SHEET (cached by data.csv SHA) ----------
 # ---------- UPDATE SHEET ----------
-with st.spinner("🔄 Έλεγχος αλλαγών..."):
+@st.cache_data(ttl=60)
+def get_csv_sha():
+    info = gh_get("data.csv")
+    return info.get("sha","") if info else ""
+
+@st.cache_data(ttl=120)
+def run_cached_update(sha):
     try:
         _df_csv = pd.read_csv(f"{GH_RAW}/data.csv")
-        st.write(f"CSV loaded: {len(_df_csv)} rows")
-        _, _n_new, _n_updated, _changed, _ = update_master_table(_df_csv)
-        st.write(f"Update done: new={_n_new} updated={_n_updated} changed={_changed}")
-        if _changed:
-            load_and_process.clear()
+        _, n_new, n_updated, changed, _ = update_master_table(_df_csv)
+        return n_new, n_updated, changed
     except Exception as e:
-        st.error(f"Update error: {e}")
-        import traceback
-        st.code(traceback.format_exc())
+        return 0, 0, False
+
+_sha = get_csv_sha()
+_n_new, _n_updated, _changed = run_cached_update(_sha)
+if _changed:
+    load_and_process.clear()
 
 # ---------- LOAD DATA ----------
 try:
