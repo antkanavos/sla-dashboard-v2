@@ -331,10 +331,18 @@ def run_update_once(sha):
 try:
     _gh_info = gh_get("data.csv")
     _csv_sha = _gh_info.get("sha","") if _gh_info else ""
-    st.write(f"DEBUG gh_get result: {str(_gh_info)[:200]}")
 except Exception as e:
     _csv_sha = ""
-    st.error(f"SHA error: {e}")
+
+try:
+    _df_test = pd.read_csv(f"{GH_RAW}/data.csv", dtype=str)
+    _mt_test, _ = load_master_table()
+    st.write(f"SHA={_csv_sha} | CSV={len(_df_test)} | Sheet={len(_mt_test)}")
+    if len(_df_test) and len(_mt_test):
+        st.write(f"CSV IDs: {_df_test[_df_test.columns[0]].head(3).tolist()}")
+        st.write(f"Sheet IDs: {_mt_test[_mt_test.columns[0]].head(3).tolist()}")
+except Exception as e:
+    st.error(f"Debug: {e}")
 run_update_once(_csv_sha)
 
 # ---------- LOAD DATA ----------
