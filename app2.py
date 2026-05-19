@@ -278,6 +278,7 @@ def update_master_table(df_new):
 
 # ---------- LOAD & PROCESS ----------
 @st.cache_resource
+@st.cache_resource
 def load_and_process():
     mt, _ = load_master_table()
 
