@@ -169,7 +169,15 @@ def update_master_table(df_new):
     if consignment_col not in df_new.columns:
         return existing, 0, 0, False, sha
 
-    df_new[consignment_col] = df_new[consignment_col].astype(str).str.strip()
+    # Normalize: remove decimals from scientific notation, pad to 12 digits
+    def norm_id(x):
+        s = str(x).strip().split(".")[0].replace("E+","e+")
+        try:
+            s = str(int(float(s)))
+        except: pass
+        return s.zfill(12)
+
+    df_new[consignment_col] = df_new[consignment_col].apply(norm_id)
     df_new = df_new[df_new[consignment_col].notna() & (df_new[consignment_col] != "") & (df_new[consignment_col] != "nan")]
 
     if df_new.empty:
@@ -201,11 +209,15 @@ def update_master_table(df_new):
             load_master_table.clear()
         return pd.DataFrame(), len(rows_to_add), 0, len(rows_to_add)>0, sha
 
-    existing_ids = set(existing[consignment_col].astype(str).str.strip().tolist())
+    existing_ids = set(existing[consignment_col].astype(str).str.strip().str.zfill(12).tolist())
+
+    # Debug
+    st.write(f"UPDATE DEBUG: existing={len(existing_ids)} | csv={len(df_new)} | sample_existing={list(existing_ids)[:3]} | sample_csv={df_new[consignment_col].head(3).tolist()}")
 
     # New rows
     new_mask = ~df_new[consignment_col].isin(existing_ids)
     new_rows_df = df_new[new_mask].copy()
+    st.write(f"new_mask true={new_mask.sum()}")
 
     # Build rows to append
     rows_to_add = []
@@ -218,7 +230,7 @@ def update_master_table(df_new):
     n_new = len(rows_to_add)
 
     # Updates: existing rows where First Attempt or Delivery changed
-    existing_idx = {str(r).strip(): i+2 for i, r in enumerate(existing[consignment_col].tolist())}
+    existing_idx = {str(r).strip().zfill(12): i+2 for i, r in enumerate(existing[consignment_col].tolist())}
     rows_updated = []
     for _, row in df_new[~new_mask].iterrows():
         cno = str(row[consignment_col]).strip()
@@ -315,35 +327,15 @@ with st.sidebar:
     page = st.radio("", ["Επισκόπηση","Ανάλυση Νομού","Ανάλυση Καταστήματος"], label_visibility="collapsed")
 
 # ---------- UPDATE SHEET (cached by data.csv SHA) ----------
-@st.cache_data(ttl=60)
-def get_data_csv_sha():
-    info = gh_get("data.csv")
-    return info.get("sha","") if info else ""
-
-@st.cache_data(ttl=60)
-def run_update_once(sha):
+# ---------- UPDATE SHEET ----------
+with st.spinner("🔄 Έλεγχος αλλαγών..."):
     try:
         _df_csv = pd.read_csv(f"{GH_RAW}/data.csv")
-        update_master_table(_df_csv)
-    except Exception:
-        pass
-
-try:
-    _gh_info = gh_get("data.csv")
-    _csv_sha = _gh_info.get("sha","") if _gh_info else ""
-except Exception as e:
-    _csv_sha = ""
-
-try:
-    _df_test = pd.read_csv(f"{GH_RAW}/data.csv", dtype=str)
-    _mt_test, _ = load_master_table()
-    st.write(f"SHA={_csv_sha} | CSV={len(_df_test)} | Sheet={len(_mt_test)}")
-    if len(_df_test) and len(_mt_test):
-        st.write(f"CSV IDs: {_df_test[_df_test.columns[0]].head(3).tolist()}")
-        st.write(f"Sheet IDs: {_mt_test[_mt_test.columns[0]].head(3).tolist()}")
-except Exception as e:
-    st.error(f"Debug: {e}")
-run_update_once(_csv_sha)
+        _, _n_new, _n_updated, _changed, _ = update_master_table(_df_csv)
+        if _changed:
+            load_and_process.clear()
+    except Exception as e:
+        st.error(f"Update error: {e}")
 
 # ---------- LOAD DATA ----------
 try:
@@ -609,23 +601,10 @@ if page == "Επισκόπηση":
     st.markdown('<div class="section-header">ΕΝΗΜΕΡΩΣΗ ΔΕΔΟΜΕΝΩΝ</div>', unsafe_allow_html=True)
     st.markdown('<div class="section-sub">Αυτόματο snapshot κάθε φορά που ανεβαίνει νέο data.csv</div>', unsafe_allow_html=True)
 
-    try:
-        df_new_data = pd.read_csv(f"{GH_RAW}/data.csv")
-        existing_before, _ = load_master_table()
-        n_existing = len(existing_before) if existing_before is not None else 0
-        try:
-            _, n_new, n_updated, changed, _ = update_master_table(df_new_data)
-            existing_after, _ = load_master_table()
-            n_after = len(existing_after) if existing_after is not None else 0
-            if changed:
-                load_and_process.clear()
-                st.markdown(f'<div class="snap-ok">✅ Νέο snapshot: <b>{n_new}</b> νέες αποστολές, <b>{n_updated}</b> ενημερώθηκαν</div>', unsafe_allow_html=True)
-            else:
-                st.markdown('<div class="snap-ok">✅ Καμία αλλαγή — δεν χρειάζεται νέο snapshot</div>', unsafe_allow_html=True)
-        except RuntimeError as e:
-            st.markdown(f'<div class="snap-warn">⚠️ {e}</div>', unsafe_allow_html=True)
-    except Exception as e:
-        st.markdown(f'<div class="snap-warn">⚠️ Αδυναμία ανάγνωσης data.csv: {e}</div>', unsafe_allow_html=True)
+    if _changed:
+        st.markdown(f'<div class="snap-ok">✅ Νέο snapshot: <b>{_n_new}</b> νέες αποστολές, <b>{_n_updated}</b> ενημερώθηκαν</div>', unsafe_allow_html=True)
+    else:
+        st.markdown('<div class="snap-ok">✅ Καμία αλλαγή — δεν χρειάζεται νέο snapshot</div>', unsafe_allow_html=True)
 
 # ════════════════════════════════════
 # ΑΝΑΛΥΣΗ ΝΟΜΟΥ
