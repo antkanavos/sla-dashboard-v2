@@ -122,6 +122,20 @@ def load_customers():
     except:
         return pd.DataFrame(columns=["Customer No.","Customer Name"])
 
+@st.cache_data(ttl=3600)
+def load_depots():
+    try:
+        return pd.read_csv(f"{GH_RAW}/depots.csv", dtype=str)
+    except:
+        return pd.DataFrame(columns=["Depot Code","Depot Name"])
+
+def normalize_depot(x):
+    try:
+        s = str(x).strip().split(".")[0].strip()
+        return str(int(s)).zfill(3)
+    except:
+        return str(x).strip()
+
 
 
 def normalize_date(d):
@@ -317,7 +331,9 @@ def metrics(df):
     n_in_sla  = int(df["First Attempt in SLA"].sum())
     sla_pct   = n_in_sla / total * 100 if total else 0
     n_pending = int(df["Date of First Attempt"].isna().sum())
-    return total, n_fa, n_del, n_ret, n_in_sla, sla_pct, n_pending
+    avg_fa_days  = round(float(df[df["First Attempt"]]["First Attempt Days"].mean()), 1) if n_fa else 0.0
+    avg_del_days = round(float(df[df["Delivered"]]["Delivered Days"].mean()), 1) if n_del else 0.0
+    return total, n_fa, n_del, n_ret, n_in_sla, sla_pct, n_pending, avg_fa_days, avg_del_days
 
 # ---------- SIDEBAR ----------
 with st.sidebar:
@@ -405,10 +421,10 @@ df = df[(df["Ημ/νία Pickup"].dt.date >= date_from) & (df["Ημ/νία Picku
 # ════════════════════════════════════
 if page == "Επισκόπηση":
 
-    total, n_fa, n_del, n_ret, n_in_sla, sla_pct, n_pending = metrics(df)
+    total, n_fa, n_del, n_ret, n_in_sla, sla_pct, n_pending, avg_fa_days, avg_del_days = metrics(df)
 
     # KPI cards
-    k1,k2,k3,k4,k5,k6,k7 = st.columns(7)
+    k1,k2,k3,k4,k5,k6,k7,k8,k9 = st.columns(9)
     kpis = [
         (k1,"📦","ΣΥΝΟΛΟ",          f"{total:,}",      "100%"),
         (k2,"✅","FIRST ATTEMPT",    f"{n_fa:,}",       f"{n_fa/total*100:.1f}% του συνόλου" if total else ""),
@@ -417,6 +433,8 @@ if page == "Επισκόπηση":
         (k5,"🎯","ΕΝΤΟΣ SLA",        f"{n_in_sla:,}",   f"{sla_pct:.2f}% του συνόλου"),
         (k6,"📊","SLA %",            f"{sla_pct:.2f}%", f"{n_in_sla:,} / {total:,}"),
         (k7,"⏳","PENDING",          f"{n_pending:,}",  f"{n_pending/total*100:.1f}% του συνόλου" if total else ""),
+        (k8,"📅","Μ.Ο. FIRST ATTEMPT",  f"{avg_fa_days:.1f} ημ.", "μέσος όρος ημερών"),
+        (k9,"📅","Μ.Ο. ΠΑΡΑΔΟΣΗΣ",      f"{avg_del_days:.1f} ημ.", "μέσος όρος ημερών"),
     ]
     for col, icon, lbl, val, sub in kpis:
         with col:
@@ -643,31 +661,48 @@ elif page == "Ανάλυση Νομού":
 elif page == "Ανάλυση Καταστήματος":
     st.markdown('<div class="section-header">ΑΝΑΛΥΣΗ ΑΝΑ ΚΑΤΑΣΤΗΜΑ</div>', unsafe_allow_html=True)
 
-    dc1,dc2 = st.columns(2)
-    with dc1: d_from = st.date_input("Από",value=min_d,min_value=min_d,max_value=max_d,key="sh_df",format="DD/MM/YYYY")
-    with dc2: d_to   = st.date_input("Έως",value=max_d,min_value=min_d,max_value=max_d,key="sh_dt",format="DD/MM/YYYY")
+    depots_df = load_depots()
+    depot_map = {}
+    if len(depots_df) and "Depot Code" in depots_df.columns:
+        for _, r in depots_df.iterrows():
+            depot_map[str(r["Depot Code"]).strip().zfill(3)] = str(r["Depot Name"]).strip()
 
-    sub = df[(df["Ημ/νία Pickup"].dt.date >= d_from) & (df["Ημ/νία Pickup"].dt.date <= d_to)]
-    if len(sub):
-        grp = sub.groupby("Delivery Depot").agg(
+    df["_depot_code"] = df["Delivery Depot"].apply(normalize_depot)
+    df["_depot_name"] = df["_depot_code"].apply(lambda x: depot_map.get(x, x))
+
+    _, sort_col = st.columns([4,1])
+    with sort_col:
+        sort_by = st.selectbox("Ταξινόμηση", ["SLA% ↑","SLA% ↓","Αποστολές ↓"], key="sh_sort")
+
+    if len(df):
+        grp = df.groupby("_depot_name").agg(
             total=("Consignment No.","count"),
             in_sla=("First Attempt in SLA","sum"),
+            fa_days=("First Attempt Days","mean"),
         ).reset_index()
         grp["sla_pct"] = (grp["in_sla"]/grp["total"]*100).round(2)
-        grp = grp.sort_values("sla_pct", ascending=True)
+        grp["fa_days"]  = grp["fa_days"].round(1)
+
+        if sort_by == "SLA% ↑":
+            grp = grp.sort_values("sla_pct", ascending=True)
+        elif sort_by == "SLA% ↓":
+            grp = grp.sort_values("sla_pct", ascending=False)
+        else:
+            grp = grp.sort_values("total", ascending=False)
 
         for _, row in grp.iterrows():
             pct = row["sla_pct"]
             color = "#22c55e" if pct>=90 else "#f97316" if pct>=75 else "#ef4444"
             st.markdown(
                 f'<div class="kpi-card" style="margin-bottom:8px;display:flex;align-items:center;gap:16px;">'
-                f'<div style="min-width:140px;font-size:13px;font-weight:600;color:#1a2235">{row["Delivery Depot"]}</div>'
+                f'<div style="min-width:180px;font-size:13px;font-weight:600;color:var(--color-text-primary)">{row["_depot_name"]}</div>'
                 f'<div style="flex:1;background:#f1f5f9;border-radius:6px;height:8px;">'
                 f'<div style="background:{color};width:{min(100,pct):.1f}%;height:8px;border-radius:6px;"></div></div>'
                 f'<div style="min-width:60px;text-align:right;font-size:13px;font-weight:700;color:{color}">{pct:.1f}%</div>'
-                f'<div style="min-width:60px;text-align:right;font-size:11px;color:#8fa3c0">{int(row["total"]):,}</div>'
+                f'<div style="min-width:80px;text-align:right;font-size:11px;color:#8fa3c0">{int(row["total"]):,} αποστ.</div>'
+                f'<div style="min-width:80px;text-align:right;font-size:11px;color:#8fa3c0">Μ.Ο. {row["fa_days"]:.1f} ημ.</div>'
                 f'</div>',
                 unsafe_allow_html=True
             )
     else:
-        st.info("Δεν υπάρχουν δεδομένα για το επιλεγμένο διάστημα.")
+        st.info("Δεν υπάρχουν δεδομένα.")
