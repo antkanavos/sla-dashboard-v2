@@ -158,7 +158,6 @@ MT_COLS = [
 
 # ---------- UPDATE MASTER TABLE ----------
 def update_master_table(df_new):
-    load_master_table.clear()
     existing, _ = load_master_table()
 
     # Get current SHA for data.csv
