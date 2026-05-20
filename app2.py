@@ -566,8 +566,8 @@ if page == "Επισκόπηση":
 
     mo_cols = st.columns(3)
     for col_i, (yr,mo,is_current) in enumerate(months):
-        mask = (df["Ημ/νία Pickup"].dt.year == yr) & (df["Ημ/νία Pickup"].dt.month == mo)
-        sub = df[mask]
+        mask = (df_full["Ημ/νία Pickup"].dt.year == yr) & (df_full["Ημ/νία Pickup"].dt.month == mo)
+        sub = df_full[mask]
         with mo_cols[col_i]:
             lbl = f"{MONTH_GR[mo]} {yr}"
             if is_current:
