@@ -461,34 +461,39 @@ if page == "Επισκόπηση":
             if not len(zdf):
                 st.markdown(f'<div class="kpi-card"><div class="kpi-label">{zone_lbl}</div><div class="kpi-value" style="color:#ccc">—</div></div>', unsafe_allow_html=True)
                 continue
-            z_total = len(zdf)
-            z_in_sla = int(zdf["First Attempt in SLA"].sum())
-            z_pct = z_in_sla / z_total * 100 if z_total else 0
-            z_out = z_total - z_in_sla
+            z_total   = len(zdf)
+            z_in_sla  = int(zdf["First Attempt in SLA"].sum())
+            z_pct     = z_in_sla / z_total * 100 if z_total else 0
+            z_out     = z_total - z_in_sla
+            z_avg_fa  = round(float(zdf[zdf["First Attempt"]]["First Attempt Days"].mean()), 1) if int(zdf["First Attempt"].sum()) else 0.0
+            z_avg_del = round(float(zdf[zdf["Delivered"]]["Delivered Days"].mean()), 1) if int(zdf["Delivered"].sum()) else 0.0
             r = 62; cx = cy = 78; stroke = 16; circ = 2*3.14159*r
             filled = circ*z_pct/100; gap = circ-filled
-            svg = f"""<svg viewBox="0 0 156 156" width="160" height="160">
-                <circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#f1f5f9" stroke-width="{stroke}"/>
-                <circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{color}" stroke-width="{stroke}"
-                    stroke-dasharray="{filled:.2f} {gap:.2f}" stroke-linecap="round" transform="rotate(-90 {cx} {cy})"/>
-                <text x="{cx}" y="{cy-8}" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="22" font-weight="800" fill="#1a2235">{z_pct:.1f}%</text>
-                <text x="{cx}" y="{cy+12}" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="10" fill="#8fa3c0">εντός SLA</text>
-            </svg>"""
-            st.markdown(f"""<div class="kpi-card" style="display:flex;align-items:center;gap:16px;">
-                {svg}
-                <div>
-                    <div class="kpi-label" style="margin-bottom:8px">{zone_lbl}</div>
-                    <div style="font-size:12px;margin-bottom:4px;color:#1a2235">
-                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{color};margin-right:6px"></span>
-                        Εντός <b>{z_in_sla:,}</b> ({z_pct:.1f}%)
-                    </div>
-                    <div style="font-size:12px;margin-bottom:12px;color:#1a2235">
-                        <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#fca5a5;margin-right:6px"></span>
-                        Εκτός <b>{z_out:,}</b> ({100-z_pct:.1f}%)
-                    </div>
-                    <div class="kpi-sub">Σύνολο: {z_total:,}</div>
-                </div>
-            </div>""", unsafe_allow_html=True)
+            svg = (
+                f'<svg viewBox="0 0 156 156" width="130" height="130" style="flex-shrink:0">' +
+                f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#f1f5f9" stroke-width="{stroke}"/>' +
+                f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{color}" stroke-width="{stroke}" stroke-dasharray="{filled:.2f} {gap:.2f}" stroke-linecap="round" transform="rotate(-90 {cx} {cy})"/>' +
+                f'<text x="{cx}" y="{cy-8}" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="20" font-weight="800" fill="#1a2235">{z_pct:.1f}%</text>' +
+                f'<text x="{cx}" y="{cy+12}" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="9" fill="#8fa3c0">εντός SLA</text>' +
+                '</svg>'
+            )
+            st.markdown(
+                f'<div class="kpi-card" style="display:flex;align-items:center;gap:16px;">' +
+                svg +
+                f'<div style="flex:1">' +
+                f'<div class="kpi-label" style="margin-bottom:8px">{zone_lbl}</div>' +
+                f'<div style="font-size:12px;margin-bottom:4px;color:#1a2235"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:{color};margin-right:6px"></span>Εντός <b>{z_in_sla:,}</b> ({z_pct:.1f}%)</div>' +
+                f'<div style="font-size:12px;margin-bottom:8px;color:#1a2235"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#fca5a5;margin-right:6px"></span>Εκτός <b>{z_out:,}</b> ({100-z_pct:.1f}%)</div>' +
+                f'<div class="kpi-sub">Σύνολο: {z_total:,}</div>' +
+                f'</div>' +
+                f'<div style="border-left:0.5px solid #f0f2f5;padding-left:14px;min-width:105px">' +
+                f'<div style="font-size:10px;color:#8fa3c0;text-transform:uppercase;margin-bottom:8px">Μέσος όρος</div>' +
+                f'<div style="margin-bottom:8px"><div style="font-size:11px;color:#8fa3c0;margin-bottom:2px">First Attempt</div><div style="font-size:18px;font-weight:500;color:#1a2235">{z_avg_fa:.1f} <span style="font-size:12px;color:#8fa3c0">ημ.</span></div></div>' +
+                f'<div><div style="font-size:11px;color:#8fa3c0;margin-bottom:2px">Παράδοσης</div><div style="font-size:18px;font-weight:500;color:#1a2235">{z_avg_del:.1f} <span style="font-size:12px;color:#8fa3c0">ημ.</span></div></div>' +
+                f'</div>' +
+                f'</div>',
+                unsafe_allow_html=True
+            )
 
     st.markdown('<hr class="divider">', unsafe_allow_html=True)
 
