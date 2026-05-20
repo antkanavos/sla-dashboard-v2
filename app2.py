@@ -660,49 +660,110 @@ elif page == "Ανάλυση Νομού":
 # ════════════════════════════════════
 elif page == "Ανάλυση Καταστήματος":
     st.markdown('<div class="section-header">ΑΝΑΛΥΣΗ ΑΝΑ ΚΑΤΑΣΤΗΜΑ</div>', unsafe_allow_html=True)
+    st.markdown('<div class="section-sub">Σύγκριση δύο περιόδων βάσει ημερομηνίας Pickup</div>', unsafe_allow_html=True)
 
+    # Load depot names
     depots_df = load_depots()
     depot_map = {}
     if len(depots_df) and "Depot Code" in depots_df.columns:
         for _, r in depots_df.iterrows():
             depot_map[str(r["Depot Code"]).strip().zfill(3)] = str(r["Depot Name"]).strip()
 
-    df["_depot_code"] = df["Delivery Depot"].apply(normalize_depot)
-    df["_depot_name"] = df["_depot_code"].apply(lambda x: depot_map.get(x, x))
+    df_full["_depot_code"] = df_full["Delivery Depot"].apply(normalize_depot)
+    df_full["_depot_name"] = df_full["_depot_code"].apply(lambda x: depot_map.get(x, x))
 
-    _, sort_col = st.columns([4,1])
-    with sort_col:
-        sort_by = st.selectbox("Ταξινόμηση", ["SLA% ↑","SLA% ↓","Αποστολές ↓"], key="sh_sort")
+    all_min = df_full["Ημ/νία Pickup"].min().date()
+    all_max = df_full["Ημ/νία Pickup"].max().date()
 
-    if len(df):
-        grp = df.groupby("_depot_name").agg(
+    pa1, pa2, pb1, pb2 = st.columns(4)
+    with pa1: p1_from = st.date_input("Περίοδος Α — Από", value=all_min, min_value=all_min, max_value=all_max, key="sh_p1f", format="DD/MM/YYYY")
+    with pa2: p1_to   = st.date_input("Περίοδος Α — Έως", value=all_max, min_value=all_min, max_value=all_max, key="sh_p1t", format="DD/MM/YYYY")
+    with pb1: p2_from = st.date_input("Περίοδος Β — Από", value=all_min, min_value=all_min, max_value=all_max, key="sh_p2f", format="DD/MM/YYYY")
+    with pb2: p2_to   = st.date_input("Περίοδος Β — Έως", value=all_max, min_value=all_min, max_value=all_max, key="sh_p2t", format="DD/MM/YYYY")
+
+    def depot_stats(d_from, d_to):
+        mask = (df_full["Ημ/νία Pickup"].dt.date >= d_from) & (df_full["Ημ/νία Pickup"].dt.date <= d_to)
+        sub = df_full[mask]
+        if not len(sub): return pd.DataFrame()
+        g = sub.groupby("_depot_name").agg(
             total=("Consignment No.","count"),
             in_sla=("First Attempt in SLA","sum"),
-            fa_days=("First Attempt Days","mean"),
         ).reset_index()
-        grp["sla_pct"] = (grp["in_sla"]/grp["total"]*100).round(2)
-        grp["fa_days"]  = grp["fa_days"].round(1)
+        g["sla_pct"] = (g["in_sla"]/g["total"]*100).round(2)
+        return g
 
-        if sort_by == "SLA% ↑":
-            grp = grp.sort_values("sla_pct", ascending=True)
-        elif sort_by == "SLA% ↓":
-            grp = grp.sort_values("sla_pct", ascending=False)
-        else:
-            grp = grp.sort_values("total", ascending=False)
+    r1 = depot_stats(p1_from, p1_to)
+    r2 = depot_stats(p2_from, p2_to)
 
-        for _, row in grp.iterrows():
-            pct = row["sla_pct"]
-            color = "#22c55e" if pct>=90 else "#f97316" if pct>=75 else "#ef4444"
-            st.markdown(
-                f'<div class="kpi-card" style="margin-bottom:8px;display:flex;align-items:center;gap:16px;">'
-                f'<div style="min-width:180px;font-size:13px;font-weight:600;color:var(--color-text-primary)">{row["_depot_name"]}</div>'
-                f'<div style="flex:1;background:#f1f5f9;border-radius:6px;height:8px;">'
-                f'<div style="background:{color};width:{min(100,pct):.1f}%;height:8px;border-radius:6px;"></div></div>'
-                f'<div style="min-width:60px;text-align:right;font-size:13px;font-weight:700;color:{color}">{pct:.1f}%</div>'
-                f'<div style="min-width:80px;text-align:right;font-size:11px;color:#8fa3c0">{int(row["total"]):,} αποστ.</div>'
-                f'<div style="min-width:80px;text-align:right;font-size:11px;color:#8fa3c0">Μ.Ο. {row["fa_days"]:.1f} ημ.</div>'
-                f'</div>',
-                unsafe_allow_html=True
-            )
+    if r1.empty or r2.empty:
+        st.info("Δεν υπάρχουν δεδομένα για μία από τις περιόδους.")
     else:
-        st.info("Δεν υπάρχουν δεδομένα.")
+        merged = r1[["_depot_name","sla_pct","total"]].merge(
+            r2[["_depot_name","sla_pct","total"]], on="_depot_name", how="outer", suffixes=("_A","_B")
+        ).fillna(0)
+        merged["diff"] = (merged["sla_pct_B"] - merged["sla_pct_A"]).round(2)
+
+        # Top 10 / Bottom 10
+        st.markdown('<hr class="divider">', unsafe_allow_html=True)
+        tc1, tc2 = st.columns(2)
+
+        with tc1:
+            st.markdown(f'<div class="section-header">🏆 Top 10 — Καλύτερη επίδοση</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="section-sub">Περίοδος Α: {p1_from.strftime("%d/%m/%Y")} — {p1_to.strftime("%d/%m/%Y")}</div>', unsafe_allow_html=True)
+            top10 = r1.sort_values("sla_pct", ascending=False).head(10)
+            for _, row in top10.iterrows():
+                pct = row["sla_pct"]
+                color = "#22c55e" if pct>=90 else "#f97316" if pct>=75 else "#ef4444"
+                st.markdown(
+                    f'<div class="kpi-card" style="margin-bottom:6px;border-left:3px solid {color};">'
+                    f'<div style="font-size:11px;color:#8fa3c0;margin-bottom:2px">{row["_depot_name"]}</div>'
+                    f'<div style="font-size:20px;font-weight:700;color:{color}">{pct:.1f}%</div>'
+                    f'<div style="font-size:11px;color:#8fa3c0">{int(row["total"]):,} αποστολές</div>'
+                    f'</div>', unsafe_allow_html=True)
+
+        with tc2:
+            st.markdown(f'<div class="section-header">⚠️ Bottom 10 — Χαμηλότερη επίδοση</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="section-sub">Περίοδος Α: {p1_from.strftime("%d/%m/%Y")} — {p1_to.strftime("%d/%m/%Y")}</div>', unsafe_allow_html=True)
+            bot10 = r1[r1["total"]>=5].sort_values("sla_pct", ascending=True).head(10)
+            for _, row in bot10.iterrows():
+                pct = row["sla_pct"]
+                color = "#22c55e" if pct>=90 else "#f97316" if pct>=75 else "#ef4444"
+                st.markdown(
+                    f'<div class="kpi-card" style="margin-bottom:6px;border-left:3px solid {color};">'
+                    f'<div style="font-size:11px;color:#8fa3c0;margin-bottom:2px">{row["_depot_name"]}</div>'
+                    f'<div style="font-size:20px;font-weight:700;color:{color}">{pct:.1f}%</div>'
+                    f'<div style="font-size:11px;color:#8fa3c0">{int(row["total"]):,} αποστολές</div>'
+                    f'</div>', unsafe_allow_html=True)
+
+        # Comparison bar chart
+        st.markdown('<hr class="divider">', unsafe_allow_html=True)
+        st.markdown('<div class="section-header">📊 Σύγκριση Περιόδων ανά Κατάστημα</div>', unsafe_allow_html=True)
+
+        merged_plot = merged.sort_values("sla_pct_A", ascending=True)
+        fig = go.Figure()
+        fig.add_trace(go.Bar(
+            y=merged_plot["_depot_name"], x=merged_plot["sla_pct_A"],
+            name="Περίοδος Α", orientation="h",
+            marker_color="#3b82f6", opacity=0.85,
+            text=merged_plot["sla_pct_A"].apply(lambda x: f"{x:.1f}%"),
+            textposition="outside",
+        ))
+        fig.add_trace(go.Bar(
+            y=merged_plot["_depot_name"], x=merged_plot["sla_pct_B"],
+            name="Περίοδος Β", orientation="h",
+            marker_color="#a78bfa", opacity=0.85,
+            text=merged_plot["sla_pct_B"].apply(lambda x: f"{x:.1f}%"),
+            textposition="outside",
+        ))
+        fig.update_layout(
+            height=max(400, len(merged_plot)*28),
+            barmode="group",
+            paper_bgcolor="white", plot_bgcolor="white",
+            margin=dict(t=10, b=20, l=200, r=80),
+            font=dict(family="Plus Jakarta Sans"),
+            xaxis=dict(range=[0,115], ticksuffix="%", gridcolor="#f0f2f5"),
+            yaxis=dict(tickfont=dict(size=11)),
+            legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="left", x=0),
+            showlegend=True,
+        )
+        st.plotly_chart(fig, use_container_width=True)
