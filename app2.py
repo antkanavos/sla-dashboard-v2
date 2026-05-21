@@ -470,11 +470,11 @@ if page == "Επισκόπηση":
             r = 62; cx = cy = 78; stroke = 16; circ = 2*3.14159*r
             filled = circ*z_pct/100; gap = circ-filled
             svg = (
-                f'<svg viewBox="0 0 156 156" width="170" height="170" style="flex-shrink:0">' +
+                f'<svg viewBox="0 0 156 156" width="220" height="220" style="flex-shrink:0">' +
                 f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#f1f5f9" stroke-width="{stroke}"/>' +
                 f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{color}" stroke-width="{stroke}" stroke-dasharray="{filled:.2f} {gap:.2f}" stroke-linecap="round" transform="rotate(-90 {cx} {cy})"/>' +
                 f'<text x="{cx}" y="{cy-8}" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="20" font-weight="800" fill="#1a2235">{z_pct:.1f}%</text>' +
-                f'<text x="{cx}" y="{cy+12}" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="9" fill="#8fa3c0">εντός SLA</text>' +
+                f'<text x="{cx}" y="{cy+12}" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="9" fill="#374151">εντός SLA</text>' +
                 '</svg>'
             )
             st.markdown(
@@ -487,9 +487,9 @@ if page == "Επισκόπηση":
                 f'<div class="kpi-sub">Σύνολο: {z_total:,}</div>' +
                 f'</div>' +
                 f'<div style="border-left:0.5px solid #f0f2f5;padding-left:14px;min-width:105px">' +
-                f'<div style="font-size:10px;color:#8fa3c0;text-transform:uppercase;margin-bottom:8px">Μέσος όρος</div>' +
-                f'<div style="margin-bottom:8px"><div style="font-size:11px;color:#8fa3c0;margin-bottom:2px">First Attempt</div><div style="font-size:18px;font-weight:500;color:#1a2235">{z_avg_fa:.1f} <span style="font-size:12px;color:#8fa3c0">ημ.</span></div></div>' +
-                f'<div><div style="font-size:11px;color:#8fa3c0;margin-bottom:2px">Παράδοσης</div><div style="font-size:18px;font-weight:500;color:#1a2235">{z_avg_del:.1f} <span style="font-size:12px;color:#8fa3c0">ημ.</span></div></div>' +
+                f'<div style="font-size:10px;color:#374151;text-transform:uppercase;margin-bottom:8px">Μέσος όρος</div>' +
+                f'<div style="margin-bottom:8px"><div style="font-size:11px;color:#374151;margin-bottom:2px">First Attempt</div><div style="font-size:18px;font-weight:500;color:#1a2235">{z_avg_fa:.1f} <span style="font-size:12px;color:#374151">ημ.</span></div></div>' +
+                f'<div><div style="font-size:11px;color:#374151;margin-bottom:2px">Παράδοσης</div><div style="font-size:18px;font-weight:500;color:#1a2235">{z_avg_del:.1f} <span style="font-size:12px;color:#374151">ημ.</span></div></div>' +
                 f'</div>' +
                 f'</div>',
                 unsafe_allow_html=True
@@ -504,7 +504,7 @@ if page == "Επισκόπηση":
     out_sla = df[df["First Attempt"].fillna(False) & ~df["First Attempt in SLA"].fillna(False)].copy()
     n_out = len(out_sla)
 
-    def delay_donut_svg(count, z1, z2, z3, size=160):
+    def delay_donut_svg(count, z1, z2, z3, size=200):
         r=62; cx=cy=78; stroke=16; circ=2*3.14159*r
         total = z1+z2+z3 if (z1+z2+z3)>0 else 1
         s1=circ*z1/total; s2=circ*z2/total; s3=circ*z3/total
@@ -518,7 +518,7 @@ if page == "Επισκόπηση":
         if z2>0: svg += arc("#f97316",s2,deg2)
         if z3>0: svg += arc("#7c3aed",s3,deg3)
         svg += f'<text x="{cx}" y="{cy-6}" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="22" font-weight="800" fill="#1a2235">{count:,}</text>'
-        svg += f'<text x="{cx}" y="{cy+16}" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="10" font-weight="600" fill="#8fa3c0">αποστολές</text>'
+        svg += f'<text x="{cx}" y="{cy+16}" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="10" font-weight="600" fill="#374151">αποστολές</text>'
         svg += '</svg>'
         return svg
 
@@ -544,9 +544,9 @@ if page == "Επισκόπηση":
                 {delay_donut_svg(cnt,z1,z2,z3)}
                 <div style="flex:1">
                     <div class="kpi-label" style="margin-bottom:12px">{lbl}</div>
-                    <div style="font-size:12px;margin-bottom:4px;color:#1a2235"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:6px"></span>Land <b>{z1:,}</b> <span style="color:#8fa3c0">({z1/zt*100:.1f}%)</span></div>
-                    <div style="font-size:12px;margin-bottom:4px;color:#1a2235"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f97316;margin-right:6px"></span>Remote <b>{z2:,}</b> <span style="color:#8fa3c0">({z2/zt*100:.1f}%)</span></div>
-                    <div style="font-size:12px;margin-bottom:12px;color:#1a2235"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7c3aed;margin-right:6px"></span>Inaccessible <b>{z3:,}</b> <span style="color:#8fa3c0">({z3/zt*100:.1f}%)</span></div>
+                    <div style="font-size:12px;margin-bottom:4px;color:#1a2235"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#22c55e;margin-right:6px"></span>Land <b>{z1:,}</b> <span style="color:#374151">({z1/zt*100:.1f}%)</span></div>
+                    <div style="font-size:12px;margin-bottom:4px;color:#1a2235"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f97316;margin-right:6px"></span>Remote <b>{z2:,}</b> <span style="color:#374151">({z2/zt*100:.1f}%)</span></div>
+                    <div style="font-size:12px;margin-bottom:12px;color:#1a2235"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#7c3aed;margin-right:6px"></span>Inaccessible <b>{z3:,}</b> <span style="color:#374151">({z3/zt*100:.1f}%)</span></div>
                     <div class="kpi-sub">% επί παραδοθέντων</div>
                     <div style="font-size:16px;font-weight:800;color:#1a2235">{pct:.1f}%</div>
                 </div>
@@ -592,7 +592,7 @@ if page == "Επισκόπηση":
                 zc = "#22c55e" if zpct>=90 else "#f97316" if zpct>=75 else "#ef4444"
                 zone_rows += (
                     '<div style="margin-bottom:10px;">'
-                    '<div style="display:flex;justify-content:space-between;font-size:11px;color:#8fa3c0;margin-bottom:3px;">'
+                    '<div style="display:flex;justify-content:space-between;font-size:11px;color:#374151;margin-bottom:3px;">'
                     f'<span>{zlbl}</span><span style="font-weight:700;color:{zc};">{zpct:.2f}%</span>'
                     '</div>'
                     '<div style="background:#f1f5f9;border-radius:4px;height:6px;">'
@@ -602,9 +602,9 @@ if page == "Επισκόπηση":
             st.markdown(
                 f'<div class="kpi-card">'
                 f'<div class="kpi-label" style="text-transform:uppercase;margin-bottom:6px">{lbl}</div>'
-                f'<div style="font-size:10px;color:#8fa3c0;margin-bottom:4px">SLA % (ΕΝΤΟΣ)</div>'
+                f'<div style="font-size:10px;color:#374151;margin-bottom:4px">SLA % (ΕΝΤΟΣ)</div>'
                 f'<div style="font-size:30px;font-weight:800;color:{pct_color};margin-bottom:2px">{mo_pct:.2f}%</div>'
-                f'<div style="font-size:11px;color:#8fa3c0;margin-bottom:16px">{mo_in_sla:,} / {mo_total:,}</div>'
+                f'<div style="font-size:11px;color:#374151;margin-bottom:16px">{mo_in_sla:,} / {mo_total:,}</div>'
                 f'{zone_rows}</div>',
                 unsafe_allow_html=True
             )
@@ -721,9 +721,9 @@ elif page == "Ανάλυση Καταστήματος":
                 color = "#22c55e" if pct>=90 else "#f97316" if pct>=75 else "#ef4444"
                 st.markdown(
                     f'<div class="kpi-card" style="margin-bottom:6px;border-left:3px solid {color};">'
-                    f'<div style="font-size:11px;color:#8fa3c0;margin-bottom:2px">{row["_depot_name"]}</div>'
+                    f'<div style="font-size:11px;color:#374151;margin-bottom:2px">{row["_depot_name"]}</div>'
                     f'<div style="font-size:20px;font-weight:700;color:{color}">{pct:.1f}%</div>'
-                    f'<div style="font-size:11px;color:#8fa3c0">{int(row["total"]):,} αποστολές</div>'
+                    f'<div style="font-size:11px;color:#374151">{int(row["total"]):,} αποστολές</div>'
                     f'</div>', unsafe_allow_html=True)
 
         with tc2:
@@ -735,9 +735,9 @@ elif page == "Ανάλυση Καταστήματος":
                 color = "#22c55e" if pct>=90 else "#f97316" if pct>=75 else "#ef4444"
                 st.markdown(
                     f'<div class="kpi-card" style="margin-bottom:6px;border-left:3px solid {color};">'
-                    f'<div style="font-size:11px;color:#8fa3c0;margin-bottom:2px">{row["_depot_name"]}</div>'
+                    f'<div style="font-size:11px;color:#374151;margin-bottom:2px">{row["_depot_name"]}</div>'
                     f'<div style="font-size:20px;font-weight:700;color:{color}">{pct:.1f}%</div>'
-                    f'<div style="font-size:11px;color:#8fa3c0">{int(row["total"]):,} αποστολές</div>'
+                    f'<div style="font-size:11px;color:#374151">{int(row["total"]):,} αποστολές</div>'
                     f'</div>', unsafe_allow_html=True)
 
         # Comparison bar chart
