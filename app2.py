@@ -13,11 +13,11 @@ st.markdown("""<style>
 html,body,[class*="css"]{font-family:'Plus Jakarta Sans',sans-serif!important}
 .block-container{padding:1.5rem 2rem!important}
 .kpi-card{background:white;border-radius:14px;padding:18px 20px;box-shadow:0 1px 8px rgba(0,0,0,0.07);border:1px solid #f0f2f5}
-.kpi-label{font-size:10px;font-weight:700;color:#8fa3c0;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.kpi-label{font-size:10px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
 .kpi-value{font-size:28px;font-weight:800;color:#1a2235}
-.kpi-sub{font-size:11px;color:#8fa3c0;margin-top:2px}
+.kpi-sub{font-size:11px;font-weight:500;color:#475569;margin-top:2px}
 .section-header{font-size:13px;font-weight:700;color:#1a2235;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.section-sub{font-size:11px;color:#8fa3c0;margin-bottom:16px}
+.section-sub{font-size:11px;font-weight:500;color:#475569;margin-bottom:16px}
 hr.divider{border:none;border-top:1px solid #f0f2f5;margin:20px 0}
 .snap-ok{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;font-size:12px;color:#166534}
 .snap-warn{background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:10px 14px;font-size:12px;color:#9a3412}
@@ -470,7 +470,7 @@ if page == "Επισκόπηση":
             r = 62; cx = cy = 78; stroke = 16; circ = 2*3.14159*r
             filled = circ*z_pct/100; gap = circ-filled
             svg = (
-                f'<svg viewBox="0 0 156 156" width="130" height="130" style="flex-shrink:0">' +
+                f'<svg viewBox="0 0 156 156" width="170" height="170" style="flex-shrink:0">' +
                 f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="#f1f5f9" stroke-width="{stroke}"/>' +
                 f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="none" stroke="{color}" stroke-width="{stroke}" stroke-dasharray="{filled:.2f} {gap:.2f}" stroke-linecap="round" transform="rotate(-90 {cx} {cy})"/>' +
                 f'<text x="{cx}" y="{cy-8}" text-anchor="middle" font-family="Plus Jakarta Sans" font-size="20" font-weight="800" fill="#1a2235">{z_pct:.1f}%</text>' +
